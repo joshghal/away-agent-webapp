@@ -1,14 +1,12 @@
 "use client";
-import { useEffect, useState } from "react";
-import { CloseIcon, PlusIcon, ChevronRightIcon, SearchIcon, ShieldIcon, PlugIcon } from "@/components/icons/icons";
+import { useEffect } from "react";
+import { CloseIcon, PlusIcon, SearchIcon, ShieldIcon, PlugIcon } from "@/components/icons/icons";
 import Image from "next/image";
 import { SessionTree } from "./SessionTree";
 import { useSidebarStore } from "@/store/sidebarStore";
-import { useSessionStore } from "@/store/sessionStore";
 import { useAuthStore } from "@/store/authStore";
 import { useMcpStore } from "@/store/mcpStore";
 import { useUiStore } from "@/store/uiStore";
-import { switchProject } from "@/lib/client/switchProject";
 import { refreshSessions } from "@/lib/client/fetchSessions";
 
 const AUTH_LABEL: Record<string, string> = { ready: "Signed in", needs_reauth: "Needs login", not_configured: "Not set up" };
@@ -16,10 +14,8 @@ const AUTH_LABEL: Record<string, string> = { ready: "Signed in", needs_reauth: "
 export function Sidebar() {
   const { drawerOpen, setDrawerOpen, openSheet } = useUiStore();
   const { searchQuery, setSearchQuery } = useSidebarStore();
-  const { currentProject } = useSessionStore();
   const authStatus = useAuthStore((s) => s.status);
   const { servers, refresh: refreshMcp } = useMcpStore();
-  const [projectInput, setProjectInput] = useState("");
 
   useEffect(() => {
     refreshSessions();
@@ -69,31 +65,12 @@ export function Sidebar() {
 
         <div className="flex-1 min-h-0 overflow-y-auto p-3">
           <button
-            onClick={() => currentProject && switchProject(currentProject, { forceNew: true })}
+            onClick={() => openSheet("newSession")}
             className="w-full flex items-center gap-2.5 py-2.5 px-3 my-1 mb-3.5 rounded-xl bg-panel-strong border border-panel-border text-text-1 text-[13.5px] font-medium hover:bg-[rgba(40,40,50,0.9)] hover:border-white/14 transition-colors"
           >
             <PlusIcon className="w-4 h-4 text-accent-2" />
             New session
           </button>
-
-          <div className="flex gap-1.5 mb-3.5">
-            <input
-              value={projectInput}
-              onChange={(e) => setProjectInput(e.target.value)}
-              onKeyDown={(e) => {
-                if (e.key === "Enter" && projectInput.trim()) switchProject(projectInput.trim(), { forceNew: true });
-              }}
-              placeholder="/path/to/project"
-              className="flex-1 min-w-0 bg-black/22 border border-panel-border-soft rounded-lg py-2 px-2.5 text-[12.5px] text-text-1 placeholder:text-text-3 outline-none focus:border-accent-soft-border"
-            />
-            <button
-              onClick={() => projectInput.trim() && switchProject(projectInput.trim(), { forceNew: true })}
-              title="Open project"
-              className="flex-none w-[34px] h-[34px] rounded-lg flex items-center justify-center bg-panel-strong border border-panel-border-soft text-text-2 hover:text-text-1 transition-colors"
-            >
-              <ChevronRightIcon className="w-[13px] h-[13px]" />
-            </button>
-          </div>
 
           <div className="flex items-center gap-2 mb-3.5 bg-black/22 border border-panel-border-soft rounded-lg py-2 px-2.5 focus-within:border-accent-soft-border">
             <SearchIcon className="w-3.5 h-3.5 flex-none text-text-3" />

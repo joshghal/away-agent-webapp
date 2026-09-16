@@ -8,6 +8,7 @@ import { ChatArea } from "@/components/chat/ChatArea";
 import { ConfigSheet } from "@/components/sheets/ConfigSheet";
 import { AuthSheet } from "@/components/sheets/AuthSheet";
 import { McpSheet } from "@/components/sheets/McpSheet";
+import { NewSessionSheet } from "@/components/sheets/NewSessionSheet";
 import { useWebSocket } from "@/hooks/useWebSocket";
 import { useSessionStore } from "@/store/sessionStore";
 import { switchProject } from "@/lib/client/switchProject";
@@ -54,6 +55,7 @@ export default function Home() {
       <ConfigSheet />
       <AuthSheet />
       <McpSheet />
+      <NewSessionSheet />
     </AppShell>
   );
 }
