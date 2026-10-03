@@ -220,8 +220,7 @@ export function LoginGate({ children }: { children: ReactNode }) {
 
         {gate === "notMember" && (
           <p className="text-[13px] text-text-2 mb-4">
-            This account isn&apos;t authorized for AwayAgent. The owner can grant it with{" "}
-            <code className="text-text-1">npm run hub:grant-owner</code>.
+            This account isn&apos;t authorized for AwayAgent.
           </p>
         )}
 
