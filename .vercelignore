@@ -1,0 +1,6 @@
+# Vercel only needs the static web app. Never upload local secrets or device-side code.
+.env*
+engine/
+lib/server/
+supabase/
+.playwright-mcp/

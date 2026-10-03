@@ -1,36 +1,65 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# AwayAgent
 
-## Getting Started
+Drive `claude` sessions on your own machines from any browser.
 
-First, run the development server:
-
-```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+```
+browser ──► away-agent.vercel.app (static UI)
+                │  login, reads, commands
+                ▼
+           Supabase (Postgres · Realtime · Storage · Auth)   ← always on
+                ▲  outbound only
+      ┌─────────┴─────────┐
+   engine (this Mac)   engine (other device)   ← runs `claude -p` locally
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+- **Hub** (Vercel + Supabase): always available. Sessions, transcripts and screenshots are mirrored here, so history stays readable when every device is off.
+- **Engine** (`engine/`): runs on each device, picks up commands, runs `claude`, streams output back. Devices never accept inbound connections.
+- A session only runs on the device that holds its transcript. Other devices see it read-only.
+- The hub keeps full transcripts for 30 days of inactivity, screenshots for sessions active in the last 24 h, and caps very long tool output at 8,000 characters.
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+## Your login (once)
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+1. Supabase dashboard → Authentication → Users → **Add user** (email + password, tick *Auto Confirm User*).
+2. `npm run hub:grant-owner -- you@example.com`
 
-## Learn More
+Sign-ups are disabled; accounts not granted this way see nothing.
 
-To learn more about Next.js, take a look at the following resources:
+Logging in requires a 2FA code, and **only one device can be signed in at a time** (first login wins). Signing out frees the slot; so does 10 minutes of inactivity. If the signed-in device is lost: `npm run hub:release-login -- you@example.com`.
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+## Add a device
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+Requires Node 20+, the `claude` CLI logged in, and the Supabase CLI logged in (`supabase login`).
 
-## Deploy on Vercel
+```bash
+git clone https://github.com/joshghal/away-agent-webapp.git && cd away-agent-webapp
+git switch supabase-hub
+npm install
+supabase link --project-ref mackvljdwhhpeibbvmfe
+npm run engine:setup          # creates this device's own login; password goes to the Keychain
+npm run engine:service -- install   # macOS: start at login, restart on crash
+```
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+On Linux/Windows, run `npm run engine` under systemd, pm2 or tmux instead of `engine:service`.
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+## Daily commands (macOS)
+
+| Command | Does |
+|---|---|
+| `npm run engine:service -- status` | Is the engine running? |
+| `npm run engine:service -- stop` | Stop it (cleanly stops its `claude` sessions); starts again at next login |
+| `npm run engine:service -- start` | Start it again |
+| `npm run engine:service -- logs` | Follow the log (`~/Library/Logs/away-agent-engine.log`) |
+| `npm run engine:service -- uninstall` | Remove the service entirely |
+
+## Web app
+
+```bash
+npm run dev                 # local UI against the hosted hub (needs .env.local)
+vercel deploy --prod        # publish to away-agent.vercel.app
+```
+
+`.env.local` holds only public values: `NEXT_PUBLIC_SUPABASE_URL` and `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY`.
+
+## Database
+
+Schema lives in `supabase/migrations/`. Apply new migrations with `supabase db push`.

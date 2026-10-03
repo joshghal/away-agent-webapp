@@ -2,7 +2,7 @@
 import { forwardRef, useState } from "react";
 import { SendIcon } from "@/components/icons/icons";
 import { InlineSettingsDropdowns } from "@/components/settings/SettingsDropdowns";
-import { send } from "@/hooks/useWebSocket";
+import { send } from "@/lib/client/hub";
 import { useChatStore } from "@/store/chatStore";
 import { useConnectionStore } from "@/store/connectionStore";
 import { useSessionStore } from "@/store/sessionStore";
@@ -55,7 +55,7 @@ export const InputBar = forwardRef<HTMLDivElement>(function InputBar(_props, ref
             onClick={sendMessage}
             disabled={status !== "connected"}
             aria-label="Send"
-            className="w-[34px] h-[34px] rounded-full flex-none flex items-center justify-center text-white transition-transform active:scale-90 disabled:bg-white/8 disabled:text-text-3 bg-gradient-to-br from-accent-2 to-accent-strong"
+            className="w-[34px] h-[34px] rounded-full flex-none flex items-center justify-center text-white transition-transform active:scale-90 disabled:bg-none disabled:bg-white/8 disabled:text-text-3 disabled:active:scale-100 disabled:cursor-not-allowed bg-gradient-to-br from-accent-2 to-accent-strong"
           >
             <SendIcon className="w-[15px] h-[15px]" />
           </button>

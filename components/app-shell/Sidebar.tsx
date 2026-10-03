@@ -1,32 +1,34 @@
 "use client";
 import { useEffect } from "react";
-import { CloseIcon, PlusIcon, SearchIcon, ShieldIcon, PlugIcon } from "@/components/icons/icons";
+import { CloseIcon, PlusIcon, SearchIcon, PlugIcon } from "@/components/icons/icons";
 import Image from "next/image";
 import { SessionTree } from "./SessionTree";
 import { useSidebarStore } from "@/store/sidebarStore";
-import { useAuthStore } from "@/store/authStore";
 import { useMcpStore } from "@/store/mcpStore";
 import { useUiStore } from "@/store/uiStore";
 import { refreshSessions } from "@/lib/client/fetchSessions";
+import { supabase } from "@/lib/client/supabase";
+import { releaseSlot } from "@/lib/client/loginSlot";
+import { useEngineStore } from "@/store/engineStore";
 
-const AUTH_LABEL: Record<string, string> = { ready: "Signed in", needs_reauth: "Needs login", not_configured: "Not set up" };
 
 export function Sidebar() {
   const { drawerOpen, setDrawerOpen, openSheet } = useUiStore();
   const { searchQuery, setSearchQuery } = useSidebarStore();
-  const authStatus = useAuthStore((s) => s.status);
-  const { servers, refresh: refreshMcp } = useMcpStore();
+  const servers = useMcpStore((s) => s.servers);
+  const onlineEngines = useEngineStore((s) => s.online);
 
   useEffect(() => {
     refreshSessions();
-    useAuthStore.getState().refresh();
-    refreshMcp();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  async function signOut() {
+    await releaseSlot(); // frees the one-login slot so another device can sign in right away
+    await supabase.auth.signOut({ scope: "local" });
+    location.reload(); // drops hub channels and in-memory state in one go
+  }
+
   const connectedCount = servers.filter((s) => s.status === "connected").length;
-  const authLabel =
-    authStatus?.state === "ready" && authStatus.email ? authStatus.email : AUTH_LABEL[authStatus?.state || ""] || "Checking…";
 
   return (
     <>
@@ -88,20 +90,6 @@ export function Sidebar() {
 
         <div className="p-3 border-t border-panel-border-soft flex flex-col gap-0.5">
           <button
-            onClick={() => openSheet("auth")}
-            className="flex items-center gap-2.5 w-full text-left rounded-xl py-2 px-2 hover:bg-hover transition-colors"
-          >
-            <span className={`w-[30px] h-[30px] rounded-[9px] flex-none flex items-center justify-center bg-panel-strong border border-panel-border-soft ${
-              authStatus?.state === "ready" ? "text-success" : "text-warn"
-            }`}>
-              <ShieldIcon className="w-[15px] h-[15px]" />
-            </span>
-            <span className="flex-1 min-w-0">
-              <span className="block text-[12.5px] font-medium text-text-1">Account</span>
-              <span className="block text-[11px] text-text-3 overflow-hidden text-ellipsis whitespace-nowrap">{authLabel}</span>
-            </span>
-          </button>
-          <button
             onClick={() => openSheet("mcp")}
             className="flex items-center gap-2.5 w-full text-left rounded-xl py-2 px-2 hover:bg-hover transition-colors"
           >
@@ -110,9 +98,18 @@ export function Sidebar() {
             </span>
             <span className="flex-1 min-w-0">
               <span className="block text-[12.5px] font-medium text-text-1">MCP servers</span>
-              <span className="block text-[11px] text-text-3">{servers.length ? `${connectedCount}/${servers.length} connected` : "Loading…"}</span>
+              <span className="block text-[11px] text-text-3">{servers.length ? `${connectedCount}/${servers.length} connected` : "—"}</span>
             </span>
           </button>
+          <div className="flex items-center gap-2 px-2 pt-1.5 text-[11px] text-text-3">
+            <span className={`w-[6px] h-[6px] rounded-full flex-none ${onlineEngines.length ? "bg-success" : "bg-text-3"}`} />
+            <span className="flex-1 min-w-0 overflow-hidden text-ellipsis whitespace-nowrap">
+              {onlineEngines.length ? `Online: ${onlineEngines.join(", ")}` : "No device online"}
+            </span>
+            <button onClick={signOut} className="flex-none hover:text-text-1 transition-colors">
+              Sign out
+            </button>
+          </div>
         </div>
       </aside>
     </>

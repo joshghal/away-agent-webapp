@@ -194,6 +194,7 @@ export function spawnFor(project: string, opts: SpawnOptions = {}): LiveSessionE
     console.error(`[${project}] claude stderr:`, d.toString());
   });
   child.on("close", (code: number | null) => {
+    if (entry.sessionId) state.recentlyOwned.set(entry.sessionId, Date.now());
     liveSessions.delete(project);
     broadcastTabStatus(project);
     // A --resume against a session ID that no longer exists fails immediately —

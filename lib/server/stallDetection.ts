@@ -27,6 +27,7 @@ export function startStallDetection(): void {
       const nextLevel = STALL_LEVELS[entry.stallLevelNotified];
       if (nextLevel && silence >= nextLevel.afterMs) {
         entry.stallLevelNotified++;
+        console.warn(`[${project}] stall: ${Math.round(silence / 1000)}s with no output from claude (session ${entry.sessionId ?? "new"})`);
         broadcast(project, { type: "stall_warning", elapsedMs: now - entry.turnStartedAt, message: nextLevel.message });
       }
     }

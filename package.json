@@ -1,21 +1,26 @@
 {
-  "name": "agent-webapp-next",
+  "name": "away-agent",
   "version": "0.1.0",
   "private": true,
   "scripts": {
-    "dev": "tsx server.ts",
+    "dev": "next dev",
     "build": "next build",
-    "start": "NODE_ENV=production tsx server.ts",
-    "lint": "eslint"
+    "start": "next start",
+    "lint": "eslint",
+    "engine": "tsx engine/index.ts",
+    "engine:setup": "tsx engine/setup.ts",
+    "hub:grant-owner": "tsx engine/grant-owner.ts",
+    "engine:service": "tsx engine/service.ts",
+    "hub:release-login": "tsx engine/release-login.ts"
   },
   "dependencies": {
+    "@supabase/supabase-js": "^2.117.2",
     "clsx": "^2.1.1",
     "dotenv": "^17.4.2",
     "marked": "^18.0.12",
     "next": "16.3.5",
     "react": "19.2.8",
     "react-dom": "19.2.8",
-    "ws": "^8.21.3",
     "zustand": "^5.0.15"
   },
   "devDependencies": {
@@ -23,7 +28,6 @@
     "@types/node": "^20",
     "@types/react": "^19",
     "@types/react-dom": "^19",
-    "@types/ws": "^8.18.1",
     "eslint": "^9",
     "eslint-config-next": "16.3.5",
     "tailwindcss": "^4",

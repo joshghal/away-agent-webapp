@@ -12,7 +12,8 @@ import type { ClientMessage } from "@/lib/shared/ws-protocol";
 export type InitIntent = Extract<ClientMessage, { type: "init" }>;
 
 type ConnectionState = {
-  status: "connecting" | "connected" | "reconnecting" | "error";
+  // offline: hub reachable but the session's device isn't — history is read-only.
+  status: "connecting" | "connected" | "reconnecting" | "offline" | "error";
   statusMessage: string;
   lastInit: InitIntent | null;
   setStatus: (status: ConnectionState["status"], message: string) => void;

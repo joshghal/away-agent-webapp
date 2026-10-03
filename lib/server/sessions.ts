@@ -166,6 +166,14 @@ export function listDirectories(): Dir[] {
   return dirs;
 }
 
+export function transcriptModifiedAt(project: string, sessionId: string): number | null {
+  try {
+    return statSync(join(CLAUDE_PROJECTS_DIR, encodeProjectPath(project), `${sessionId}.jsonl`)).mtimeMs;
+  } catch {
+    return null;
+  }
+}
+
 export function readHistory(project: string, sessionId: string): HistoryItem[] {
   const dir = join(CLAUDE_PROJECTS_DIR, encodeProjectPath(project));
   const file = join(dir, `${sessionId}.jsonl`);

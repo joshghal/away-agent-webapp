@@ -1,15 +1,8 @@
 import type { ChildProcessWithoutNullStreams } from "node:child_process";
-import type { McpListResponse } from "../shared/ws-protocol";
+import type { McpListResponse, ServerMessage } from "../shared/ws-protocol";
 
-// A custom server (server.ts, run directly via tsx) and Next's compiled Route
-// Handlers can end up as two different module graphs even though both import the
-// same source file — server.ts is executed directly, while Route Handlers load
-// from Next's own build output. If liveSessions/mcpCache/projectLocks were plain
-// module-level `const`s, they could get instantiated twice, and /api/sessions'
-// `.live` flag would silently always read false. Anchoring on globalThis (the same
-// pattern Next's own docs recommend for a Prisma client, for exactly this reason)
-// guarantees every consumer reads the same instance regardless of which module
-// graph loaded it.
+// Anchored on globalThis so every importer shares one instance even if a module
+// ends up loaded twice (tsx watch reloads, mixed import paths).
 
 export type PendingApproval = {
   type: "approval_request";
@@ -22,7 +15,7 @@ export type PendingApproval = {
 export type LiveSessionEntry = {
   child: ChildProcessWithoutNullStreams;
   sessionId: string | null;
-  subscribers: Set<(obj: unknown) => void>;
+  subscribers: Set<(obj: ServerMessage) => void>;
   pendingApprovals: Map<string, PendingApproval>;
   turnStartedAt: number | null;
   lastActivityAt: number;
@@ -37,19 +30,21 @@ export type LiveSessionEntry = {
 
 type GlobalState = {
   liveSessions: Map<string, LiveSessionEntry>;
+  // sessionId -> when this process last ran it. Distinguishes "recently written by
+  // us" from "recently written by another app" (VS Code, a terminal).
+  recentlyOwned: Map<string, number>;
   projectLocks: Map<string, Promise<unknown>>;
   mcpCache: { data: McpListResponse | null; at: number };
-  // Every currently-connected socket's send function, independent of which
-  // project (if any) it's attached to — tab_status broadcasts go to all of
-  // these, since a tab for a project this connection isn't viewing still needs
-  // to learn that project's idle/processing/permission state.
-  allConnections: Set<(obj: unknown) => void>;
+  // Sinks for tab_status, independent of which project (if any) a viewer is
+  // attached to — a tab for a project nobody is viewing still needs its status.
+  allConnections: Set<(obj: ServerMessage) => void>;
 };
 
 const g = globalThis as unknown as { __agentWebapp?: GlobalState };
 
 g.__agentWebapp ??= {
   liveSessions: new Map(),
+  recentlyOwned: new Map(),
   projectLocks: new Map(),
   mcpCache: { data: null, at: 0 },
   allConnections: new Set(),

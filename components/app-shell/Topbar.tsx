@@ -19,10 +19,10 @@ export function Topbar() {
       </button>
       <div
         className={`flex-1 text-[11.5px] overflow-hidden text-ellipsis whitespace-nowrap ${
-          status === "connected" ? "text-success" : status === "error" ? "text-danger" : "text-text-3"
+          status === "connected" ? "text-success" : status === "error" ? "text-danger" : status === "offline" ? "text-warn" : "text-text-3"
         }`}
       >
-        {(status === "connected" || status === "error") && <span className="mr-1.5">●</span>}
+        {(status === "connected" || status === "error" || status === "offline") && <span className="mr-1.5">●</span>}
         {statusMessage}
       </div>
       <TurnStateBadge />

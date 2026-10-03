@@ -3,26 +3,36 @@ import { useState } from "react";
 import { Sheet } from "./Sheet";
 import { useUiStore } from "@/store/uiStore";
 import { useAuthStore } from "@/store/authStore";
-import { send } from "@/hooks/useWebSocket";
+import { useEngineStore } from "@/store/engineStore";
+import { send } from "@/lib/client/hub";
 
 export function AuthSheet() {
   const { activeSheet, closeSheet } = useUiStore();
-  const { status, loginUrl, loginMessage } = useAuthStore();
+  const { status: lastStatus, loginUrl, loginMessage, engineId, deviceName } = useAuthStore();
+  // Each device reports its own `claude` login to its engines row.
+  const status = useEngineStore((s) => (engineId ? s.engines[engineId]?.claude_auth : null)) ?? lastStatus;
+  // Logging in runs `claude auth login` on the device itself, through its engine.
+  const deviceOnline = useEngineStore((s) => !!engineId && s.online.includes(engineId));
   const [code, setCode] = useState("");
 
   function startLogin() {
     useAuthStore.getState().clearLoginFlow();
-    send({ type: "login_start" });
+    send({ type: "login_start" }, engineId);
   }
 
   function submitCode() {
     if (!code.trim()) return;
-    send({ type: "login_code", code: code.trim() });
+    send({ type: "login_code", code: code.trim() }, engineId);
     useAuthStore.getState().setVerifying(true);
   }
 
   return (
-    <Sheet open={activeSheet === "auth"} onClose={closeSheet} title="Account">
+    <Sheet open={activeSheet === "auth"} onClose={closeSheet} title="Claude login">
+      <div className="text-[12px] text-text-3 mb-3 leading-relaxed">
+        The Claude account <span className="text-text-1 font-medium">{deviceName ?? "this device"}</span> uses to run your
+        sessions. Each device has its own — changing it here only affects this device, but it does change Claude Code
+        everywhere on that machine (VS Code, terminal).
+      </div>
       {status?.state === "ready" ? (
         <div className="text-[13px] text-text-2 mb-3">
           {[
@@ -71,10 +81,17 @@ export function AuthSheet() {
       )}
       {loginMessage && <div className="text-[13px] text-danger mb-3">{loginMessage}</div>}
 
+      {!deviceOnline && (
+        <div className="text-[12.5px] text-warn mb-3">
+          {deviceName ?? "This device"} is offline. Changing its Claude login needs its engine running — start it on that
+          machine with <code>npm run engine:service -- start</code>.
+        </div>
+      )}
       {!loginUrl && (
         <button
           onClick={startLogin}
-          className="bg-gradient-to-br from-accent-2 to-accent-strong border-none rounded-lg py-2.5 px-4 text-white text-[13px] font-semibold"
+          disabled={!deviceOnline}
+          className="bg-gradient-to-br from-accent-2 to-accent-strong border-none rounded-lg py-2.5 px-4 text-white text-[13px] font-semibold disabled:opacity-40 disabled:cursor-not-allowed"
         >
           Start login
         </button>

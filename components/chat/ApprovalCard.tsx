@@ -1,6 +1,6 @@
 "use client";
 import { AlertIcon } from "@/components/icons/icons";
-import { send } from "@/hooks/useWebSocket";
+import { send } from "@/lib/client/hub";
 import { useChatStore } from "@/store/chatStore";
 import { useSessionStore } from "@/store/sessionStore";
 

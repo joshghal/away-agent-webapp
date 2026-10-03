@@ -3,16 +3,16 @@ import { useChatStore } from "@/store/chatStore";
 import { useTabsStore, tabKey } from "@/store/tabsStore";
 import { useSidebarStore } from "@/store/sidebarStore";
 import { useTabStatusStore } from "@/store/tabStatusStore";
-import { sendInit } from "@/hooks/useWebSocket";
+import { sendInit, engineFor } from "@/lib/client/hub";
 
 export function switchProject(path: string, opts: { sessionId?: string; forceNew?: boolean; title?: string } = {}): void {
   if (!path) return;
   const { sessionId, forceNew, title } = opts;
   const resolvedSessionId = forceNew ? null : sessionId || null;
 
-  useSessionStore.getState().setSession(path, resolvedSessionId);
+  useSessionStore.getState().setSession(path, resolvedSessionId, false, engineFor(path, resolvedSessionId));
   useChatStore.getState().reset();
-  useSidebarStore.getState().expand(path);
+  useSidebarStore.getState().expand(`${engineFor(path, resolvedSessionId) ?? ""}|${path}`);
   // Visiting a tab resolves its "unread" (finished while you weren't looking)
   // badge back to plain idle — the underlying status hasn't changed, only its
   // visibility has. Leave processing/permission alone; those are still true.

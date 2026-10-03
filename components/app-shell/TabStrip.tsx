@@ -6,7 +6,7 @@ import { useChatStore } from "@/store/chatStore";
 import { useConnectionStore } from "@/store/connectionStore";
 import { useTabStatusStore } from "@/store/tabStatusStore";
 import { switchProject } from "@/lib/client/switchProject";
-import { send } from "@/hooks/useWebSocket";
+import { send, engineFor, refreshConnectionStatus } from "@/lib/client/hub";
 import { refreshSessions } from "@/lib/client/fetchSessions";
 import { updateUrlForCurrent } from "@/lib/client/urlSync";
 
@@ -32,13 +32,13 @@ export function TabStrip() {
   if (tabs.length === 0) return null;
   const activeKey = tabKey(currentProject || "", currentSessionId);
 
-  function handleClose(e: React.MouseEvent, key: string, project: string) {
+  function handleClose(e: React.MouseEvent, key: string, project: string, sessionId: string | null) {
     e.stopPropagation();
     const next = useTabsStore.getState().closeTab(key);
-    // Closing a tab stops the underlying process server-side, not just hides it
+    // Closing a tab stops the underlying process on its device, not just hides it
     // from this list — sent by project since the closed tab might not be the one
-    // this connection is actively viewing.
-    send({ type: "kill_session", project });
+    // this viewer is actively looking at.
+    void send({ type: "kill_session", project }, engineFor(project, sessionId));
     if (key === activeKey) {
       if (next) {
         switchProject(next.project, { sessionId: next.sessionId || undefined });
@@ -52,11 +52,11 @@ export function TabStrip() {
         useChatStore.getState().reset();
         useSessionStore.getState().clearSession();
         useConnectionStore.getState().setLastInit(null);
-        useConnectionStore.getState().setStatus("connected", "Connected");
+        refreshConnectionStatus();
         updateUrlForCurrent(null, null);
       }
     }
-    // The sidebar's live dot is only as fresh as the last /api/sessions fetch —
+    // The sidebar's live dot is only as fresh as the last sessions fetch —
     // closing a tab that ISN'T the active one (so nothing above re-triggers a
     // session_init) would otherwise leave it showing live until some unrelated
     // refresh happens. Give killLive a moment to land, then re-check.
@@ -80,7 +80,7 @@ export function TabStrip() {
             <span title={STATUS_LABEL[status]} className={`w-1.5 h-1.5 rounded-full flex-none ${STATUS_DOT_CLASS[status]}`} />
             <span className="overflow-hidden text-ellipsis whitespace-nowrap">{t.label}</span>
             <button
-              onClick={(e) => handleClose(e, key, t.project)}
+              onClick={(e) => handleClose(e, key, t.project, t.sessionId)}
               title="Close tab"
               className="w-[18px] h-[18px] rounded-full flex-none flex items-center justify-center text-text-3 hover:bg-active hover:text-text-1 transition-colors"
             >

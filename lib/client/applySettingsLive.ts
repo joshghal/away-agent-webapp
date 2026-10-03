@@ -1,7 +1,7 @@
 import { useSettingsStore } from "@/store/settingsStore";
 import { useConnectionStore } from "@/store/connectionStore";
 import { useSessionStore } from "@/store/sessionStore";
-import { send } from "@/hooks/useWebSocket";
+import { send } from "@/lib/client/hub";
 
 // model/effort/permission-mode/MCP-preset are all CLI flags fixed at process spawn
 // time — there's no live "switch model" signal for an already-running headless

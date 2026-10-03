@@ -2,6 +2,7 @@
 import { useState } from "react";
 import { WrenchIcon, CheckIcon, XCircleIcon } from "@/components/icons/icons";
 import type { ImagePart } from "@/lib/shared/ws-protocol";
+import { TranscriptImage } from "./TranscriptImage";
 
 export function ToolUseCard({ name, input }: { name: string; input: unknown }) {
   return (
@@ -44,12 +45,11 @@ export function ToolResultCard({
         </pre>
       )}
       {images.map((img, i) => (
-        <img
-          key={i}
-          src={`data:${img.mediaType};base64,${img.data}`}
-          alt="screenshot"
-          onClick={() => setExpandedIdx(expandedIdx === i ? null : i)}
-          className={`block rounded-lg mt-2 ${expandedIdx === i ? "max-w-none w-full cursor-zoom-out" : "max-w-full cursor-zoom-in"}`}
+        <TranscriptImage
+          key={img.path || i}
+          img={img}
+          expanded={expandedIdx === i}
+          onToggle={() => setExpandedIdx(expandedIdx === i ? null : i)}
         />
       ))}
     </div>

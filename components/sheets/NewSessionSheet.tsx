@@ -5,8 +5,8 @@ import { FolderIcon, PinIcon, ChevronRightIcon } from "@/components/icons/icons"
 import { useUiStore } from "@/store/uiStore";
 import { usePinnedDirsStore } from "@/store/pinnedDirsStore";
 import { switchProject } from "@/lib/client/switchProject";
-
-type BrowseResult = { path: string; parent: string | null; dirs: { name: string; path: string }[] };
+import { browseDirs, type BrowseResult } from "@/lib/client/hub";
+import { useEngineStore, selectedEngineId } from "@/store/engineStore";
 
 function folderLabel(path: string): string {
   return path.split("/").pop() || path;
@@ -16,30 +16,59 @@ export function NewSessionSheet() {
   const { activeSheet, closeSheet } = useUiStore();
   const { pins, isPinned, toggle } = usePinnedDirsStore();
   const [browse, setBrowse] = useState<BrowseResult | null>(null);
+  const [browseError, setBrowseError] = useState<string | null>(null);
   const [customPath, setCustomPath] = useState("");
+  const { online, setPreferred } = useEngineStore();
+  const engineId = online.length ? selectedEngineId() : null;
   const open = activeSheet === "newSession";
 
   useEffect(() => {
-    if (open) load();
+    if (open && engineId) load();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [open]);
+  }, [open, engineId]);
 
   async function load(path?: string) {
+    setBrowseError(null);
     try {
-      const res = await fetch(`/api/browse-dirs${path ? `?path=${encodeURIComponent(path)}` : ""}`);
-      if (res.ok) setBrowse(await res.json());
+      setBrowse(await browseDirs(path));
     } catch (e) {
-      console.error("failed to browse directories:", e);
+      setBrowseError((e as Error).message);
     }
   }
 
   function start(path: string) {
+    if (!engineId) return;
     switchProject(path, { forceNew: true });
     closeSheet();
   }
 
   return (
     <Sheet open={open} onClose={closeSheet} title="New session">
+      {!engineId ? (
+        <div className="text-[12.5px] text-warn mb-3">
+          No device is online. New sessions need a running engine — start one with <code>npm run engine</code>.
+        </div>
+      ) : (
+        online.length > 1 && (
+          <div className="flex flex-wrap items-center gap-1.5 mb-3">
+            <span className="text-[11.5px] text-text-3 mr-1">Run on</span>
+            {online.map((id) => (
+              <button
+                key={id}
+                onClick={() => {
+                  setPreferred(id);
+                  setBrowse(null);
+                }}
+                className={`text-[11.5px] rounded-full px-2.5 py-1 border transition-colors ${
+                  id === engineId ? "border-accent-soft-border text-accent-2 bg-active" : "border-panel-border-soft text-text-2 hover:text-text-1"
+                }`}
+              >
+                {id}
+              </button>
+            ))}
+          </div>
+        )
+      )}
       <FieldLabel>Pinned</FieldLabel>
       {pins.length === 0 && <div className="text-[12px] text-text-3 py-1">No pinned directories yet — pin any folder below.</div>}
       <div className="flex flex-col gap-0.5 mb-1">
@@ -63,8 +92,10 @@ export function NewSessionSheet() {
         ))}
       </div>
 
-      <FieldLabel>Browse</FieldLabel>
-      {browse && (
+      <FieldLabel>Browse{engineId ? ` · ${engineId}` : ""}</FieldLabel>
+      {browseError && <div className="text-[12px] text-danger py-1">{browseError}</div>}
+      {engineId && !browse && !browseError && <div className="text-[12px] text-text-3 py-1">Asking the device…</div>}
+      {engineId && browse && (
         <div className="bg-black/22 border border-panel-border-soft rounded-lg overflow-hidden mb-1">
           <div className="flex items-center gap-2 px-2.5 py-2 border-b border-panel-border-soft">
             {browse.parent && (

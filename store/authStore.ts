@@ -1,8 +1,13 @@
 import { create } from "zustand";
 import type { AuthStatus } from "@/lib/shared/ws-protocol";
+import { send } from "@/lib/client/hub";
 
 type AuthState = {
   status: AuthStatus | null;
+  // Which device's `claude` CLI login this is — each device has its own.
+  engineId: string | null;
+  deviceName: string | null;
+  setDevice: (engineId: string, deviceName: string) => void;
   loginUrl: string | null;
   loginMessage: string | null;
   verifying: boolean;
@@ -16,16 +21,17 @@ type AuthState = {
 
 export const useAuthStore = create<AuthState>((set) => ({
   status: null,
+  engineId: null,
+  deviceName: null,
+  setDevice: (engineId, deviceName) =>
+    set({ engineId, deviceName, loginUrl: null, loginMessage: null, verifying: false }),
   loginUrl: null,
   loginMessage: null,
   verifying: false,
+  // The device re-checks and writes the result to its engines row, which flows
+  // back into this store via the hub's engine-row subscription.
   refresh: async () => {
-    try {
-      const res = await fetch("/api/auth-status");
-      set({ status: await res.json() });
-    } catch (e) {
-      console.error("failed to check auth status:", e);
-    }
+    await send({ type: "auth_refresh" }, useAuthStore.getState().engineId);
   },
   setStatus: (status) => set({ status }),
   setLoginUrl: (loginUrl) => set({ loginUrl, loginMessage: null }),
