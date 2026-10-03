@@ -50,7 +50,14 @@ export function AuthPanel() {
         </div>
       ) : (
         <div className="text-[13px] text-text-2 mb-3">
-          {status?.state === "needs_reauth"
+          {status?.state === "cli_missing" ? (
+            <>
+              Claude Code isn&apos;t installed on this device, so it can&apos;t run sessions. On that machine run{" "}
+              <code className="text-text-1">brew install --cask claude-code</code>, then{" "}
+              <code className="text-text-1">claude auth login</code>, then restart its engine. (The copy inside the VS Code
+              extension doesn&apos;t count.)
+            </>
+          ) : status?.state === "needs_reauth"
             ? "Your login has expired and needs to be renewed."
             : status
               ? "Claude Code hasn't been logged in yet on this machine."
@@ -87,7 +94,7 @@ export function AuthPanel() {
       {!loginUrl && (
         <button
           onClick={startLogin}
-          disabled={!deviceOnline}
+          disabled={!deviceOnline || status?.state === "cli_missing"}
           className="bg-gradient-to-br from-accent-2 to-accent-strong border-none rounded-lg py-2.5 px-4 text-white text-[13px] font-semibold disabled:opacity-40 disabled:cursor-not-allowed"
         >
           Start login

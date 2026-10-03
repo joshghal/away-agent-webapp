@@ -22,7 +22,17 @@ export function hasStoredCredential(): boolean {
   }
 }
 
+export function claudeCliInstalled(): boolean {
+  try {
+    execSync("command -v claude", { stdio: "ignore", shell: "/bin/sh" });
+    return true;
+  } catch {
+    return false;
+  }
+}
+
 export function getAuthStatus(): AuthStatus {
+  if (!claudeCliInstalled()) return { state: "cli_missing" };
   try {
     const raw = execSync("claude auth status --json", {
       stdio: ["ignore", "pipe", "ignore"],

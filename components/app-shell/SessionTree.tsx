@@ -28,6 +28,7 @@ function claudeAccountLine(engine: EngineRow | undefined): { text: string; warn:
   if (auth.state === "ready") {
     return { text: `Claude: ${auth.email ?? "signed in"}${auth.subscriptionType ? ` · ${auth.subscriptionType}` : ""}${mcp}`, warn: false };
   }
+  if (auth.state === "cli_missing") return { text: "Claude Code CLI not installed", warn: true };
   return { text: "Claude login needed", warn: true };
 }
 

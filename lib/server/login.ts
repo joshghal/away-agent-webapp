@@ -34,6 +34,20 @@ export function createLoginSession(send: (obj: ServerMessage) => void) {
       }
     }, LOGIN_TTL_MS);
 
+    let failedToStart = false;
+    child.on("error", (err: NodeJS.ErrnoException) => {
+      failedToStart = true;
+      clearTimeout(timer);
+      if (activeLogin === child) activeLogin = null;
+      if (loginChild === child) loginChild = null;
+      send({
+        type: "login_result",
+        success: false,
+        authStatus: getAuthStatus(),
+        message: err.code === "ENOENT" ? "Claude Code isn't installed on this device." : err.message,
+      });
+    });
+
     let buf = "";
     let urlSent = false;
     const onOutput = (chunk: Buffer) => {
@@ -50,6 +64,7 @@ export function createLoginSession(send: (obj: ServerMessage) => void) {
       clearTimeout(timer);
       if (activeLogin === child) activeLogin = null;
       if (loginChild === child) loginChild = null;
+      if (failedToStart) return; // already reported by the 'error' handler
       const success = code === 0;
       console.log(`[login] ${success ? "completed" : expired ? "expired" : "ended without completing"}`);
       send({

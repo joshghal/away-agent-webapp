@@ -7,7 +7,7 @@ import { state } from "../lib/server/singleton";
 import { createConnection, type Connection, type SessionMessage } from "../lib/server/connection";
 import { isAlive, killLive } from "../lib/server/liveSessions";
 import { listDirectories } from "../lib/server/sessions";
-import { getAuthStatus } from "../lib/server/authStatus";
+import { getAuthStatus, claudeCliInstalled } from "../lib/server/authStatus";
 import { getMcpServersCached, addMcpServer, removeMcpServer } from "../lib/server/mcp";
 import { startStallDetection } from "../lib/server/stallDetection";
 import { HOME, DEFAULT_PROJECT_DIR } from "../lib/server/env";
@@ -407,6 +407,13 @@ async function main(): Promise<void> {
     });
 
   startStallDetection();
+  if (!claudeCliInstalled()) {
+    console.error(
+      "WARNING: the `claude` CLI is not on this device's PATH, so no session can run here. " +
+        "Install Claude Code (brew install --cask claude-code), run `claude auth login`, then restart the engine. " +
+        "The copy bundled inside the VS Code extension does not count."
+    );
+  }
 
   setInterval(() => void saveEngine({ last_seen_at: new Date().toISOString() }), HEARTBEAT_MS);
   setInterval(() => {

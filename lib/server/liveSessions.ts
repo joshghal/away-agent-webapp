@@ -193,6 +193,18 @@ export function spawnFor(project: string, opts: SpawnOptions = {}): LiveSessionE
     stderrBuf += d.toString();
     console.error(`[${project}] claude stderr:`, d.toString());
   });
+  // Without this, a missing `claude` binary (ENOENT) is an unhandled 'error'
+  // event that crashes the whole engine. 'close' still follows for cleanup.
+  let spawnFailed = false;
+  child.on("error", (err: NodeJS.ErrnoException) => {
+    spawnFailed = true;
+    const message =
+      err.code === "ENOENT"
+        ? "Claude Code isn't installed on this device (no `claude` on its PATH). Install it, run `claude auth login`, then restart the engine."
+        : `Couldn't start claude: ${err.message}`;
+    console.error(`[${project}] ${message}`);
+    broadcast(project, { type: "error", message });
+  });
   child.on("close", (code: number | null) => {
     if (entry.sessionId) state.recentlyOwned.set(entry.sessionId, Date.now());
     liveSessions.delete(project);
@@ -200,6 +212,9 @@ export function spawnFor(project: string, opts: SpawnOptions = {}): LiveSessionE
     // A --resume against a session ID that no longer exists fails immediately —
     // fall back to a fresh session instead of handing the client a dead end
     // (or worse, an infinite retry loop on the same broken ID).
+    // Already reported via 'error'. Sending process_exit would make the browser
+    // retry immediately, looping forever while `claude` is missing.
+    if (spawnFailed) return;
     const resumeFailed = resumeSessionId && /No conversation found/i.test(stderrBuf);
     const authFailed = /unauthorized|not authenticated|invalid_grant|please.{0,15}log.?in|401/i.test(stderrBuf);
     if (authFailed) {

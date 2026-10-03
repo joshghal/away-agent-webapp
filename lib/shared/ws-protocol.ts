@@ -20,7 +20,9 @@ export type AuthStatus =
       orgName?: string;
       orgId?: string;
     }
-  | { state: "needs_reauth" | "not_configured" };
+  // cli_missing: no `claude` on this device's PATH (e.g. only VS Code's bundled copy) —
+  // the engine can't run any session until Claude Code is installed.
+  | { state: "needs_reauth" | "not_configured" | "cli_missing" };
 
 export type HistoryItem =
   | { type: "user_message"; text: string | null }

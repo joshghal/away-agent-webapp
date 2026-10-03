@@ -62,6 +62,8 @@ claude --version    # Claude Code CLI     → brew install --cask claude-code
 supabase --version  # Supabase CLI        → brew install supabase/tap/supabase
 ```
 
+> **`claude` must be on the PATH.** The copy bundled inside the VS Code / Cursor extension does **not** count — the engine can't find or use it. If `claude --version` says `command not found`, install the CLI (`brew install --cask claude-code`) even if Claude Code already works in your editor.
+
 You also need:
 - Access to the **Supabase account that owns the `away-agent` project** (the setup script uses it to create this device's login).
 - The **Claude account this device should use** (work or personal).
@@ -113,6 +115,8 @@ Start it with: npm run engine
 ```
 
 What it did: created this device's own account (`engine-<id>@awayagent.invalid`), added it as an engine member, saved a random password in the macOS Keychain, and wrote `.env.engine` (public values only). Use a **different id on every device**.
+
+Before continuing, confirm `claude --version` works in this same terminal — the background service uses the same PATH as your login shell.
 
 ### 2.6 Run it in the background (macOS)
 
@@ -196,6 +200,7 @@ Never put the Supabase **service-role / secret key** on Vercel or in any engine.
 | Log: `registered to a different machine (fingerprint …)` | That engine id belongs to another computer (e.g. a copied `.env.engine`). Run `npm run engine:setup -- --id <unique-id>`. |
 | Log: `No engine password found` | Keychain entry missing → re-run `npm run engine:setup`. |
 | Device shows **Offline** in the sidebar | `npm run engine:service -- status`; if not running → `start`; then read `logs`. |
+| Device header shows **Claude Code CLI not installed**, or the log shows `WARNING: the claude CLI is not on this device's PATH` | Only the editor's bundled copy exists. `brew install --cask claude-code`, `claude auth login`, then `npm run engine:service -- stop && npm run engine:service -- start`. |
 | Device header shows **Claude login needed**, or no `Claude:` line | Run `claude auth login` on that device (or use **Fix** in the website while it's online). The header updates within 5 minutes or on engine restart. |
 | "Open in another app right now — read-only here" | That session is being written by another program (e.g. VS Code). Start a new session, or wait until it's idle a minute. |
 | Website: "already signed in on …" | Single-login rule. Sign out on the other device, wait 10 min, or `npm run hub:release-login`. |
