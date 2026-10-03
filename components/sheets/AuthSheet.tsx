@@ -1,13 +1,10 @@
 "use client";
 import { useState } from "react";
-import { Sheet } from "./Sheet";
-import { useUiStore } from "@/store/uiStore";
 import { useAuthStore } from "@/store/authStore";
 import { useEngineStore } from "@/store/engineStore";
 import { send } from "@/lib/client/hub";
 
-export function AuthSheet() {
-  const { activeSheet, closeSheet } = useUiStore();
+export function AuthPanel() {
   const { status: lastStatus, loginUrl, loginMessage, engineId, deviceName } = useAuthStore();
   // Each device reports its own `claude` login to its engines row.
   const status = useEngineStore((s) => (engineId ? s.engines[engineId]?.claude_auth : null)) ?? lastStatus;
@@ -27,7 +24,7 @@ export function AuthSheet() {
   }
 
   return (
-    <Sheet open={activeSheet === "auth"} onClose={closeSheet} title="Claude login">
+    <>
       <div className="text-[12px] text-text-3 mb-3 leading-relaxed">
         The Claude account <span className="text-text-1 font-medium">{deviceName ?? "this device"}</span> uses to run your
         sessions. Each device has its own — changing it here only affects this device, but it does change Claude Code
@@ -96,6 +93,6 @@ export function AuthSheet() {
           Start login
         </button>
       )}
-    </Sheet>
+    </>
   );
 }

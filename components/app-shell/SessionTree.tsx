@@ -23,8 +23,10 @@ const COLLAPSED_KEY = "away-agent:collapsedDevices";
 function claudeAccountLine(engine: EngineRow | undefined): { text: string; warn: boolean } | null {
   const auth = engine?.claude_auth;
   if (!auth) return null;
+  const servers = engine?.mcp?.servers ?? [];
+  const mcp = servers.length ? ` · MCP ${servers.filter((s) => s.status === "connected").length}/${servers.length}` : "";
   if (auth.state === "ready") {
-    return { text: `Claude: ${auth.email ?? "signed in"}${auth.subscriptionType ? ` · ${auth.subscriptionType}` : ""}`, warn: false };
+    return { text: `Claude: ${auth.email ?? "signed in"}${auth.subscriptionType ? ` · ${auth.subscriptionType}` : ""}${mcp}`, warn: false };
   }
   return { text: "Claude login needed", warn: true };
 }
@@ -52,7 +54,7 @@ export function SessionTree() {
 
   function manageLogin(engineId: string, deviceName: string) {
     useAuthStore.getState().setDevice(engineId, deviceName);
-    openSheet("auth");
+    openSheet("device");
   }
   const [collapsed, setCollapsed] = useState<Set<string>>(() => (typeof window === "undefined" ? new Set() : loadCollapsed()));
 
@@ -130,7 +132,7 @@ export function SessionTree() {
               {engine && (
                 <button
                   onClick={() => manageLogin(engineId, engine.device_name || engineId)}
-                  title={isOnline ? "Manage this device's Claude login" : "Device offline — its Claude login can be changed when it's online"}
+                  title={isOnline ? "This device's Claude login and MCP servers" : "Device offline — view only; changes need it online"}
                   className={`flex-none mt-1.5 text-[10.5px] rounded-md px-1.5 py-0.5 border transition-colors ${
                     account?.warn
                       ? "text-warn border-warn/40 hover:bg-hover"

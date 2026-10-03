@@ -1,6 +1,6 @@
 import { create } from "zustand";
 
-type SheetName = "config" | "auth" | "mcp" | "newSession" | null;
+type SheetName = "config" | "device" | "newSession" | null;
 
 type UiState = {
   drawerOpen: boolean;

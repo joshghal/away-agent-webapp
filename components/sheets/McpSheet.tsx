@@ -1,31 +1,39 @@
 "use client";
-import { useState } from "react";
-import { Sheet } from "./Sheet";
-import { useUiStore } from "@/store/uiStore";
+import { useEffect, useState } from "react";
 import { useMcpStore } from "@/store/mcpStore";
+import { useAuthStore } from "@/store/authStore";
+import { useEngineStore } from "@/store/engineStore";
 
 const DOT_COLOR = { connected: "bg-success", needs_auth: "bg-warn", failed: "bg-danger" };
 
-export function McpSheet() {
-  const { activeSheet, closeSheet } = useUiStore();
-  const { servers, warnings, loading, error, add, remove } = useMcpStore();
+// MCP servers are configured per device (each machine's own `claude mcp` config).
+export function McpPanel() {
+  const engineId = useAuthStore((s) => s.engineId);
+  const engine = useEngineStore((s) => (engineId ? s.engines[engineId] : undefined));
+  const deviceOnline = useEngineStore((s) => !!engineId && s.online.includes(engineId));
+  const { loading, error, add, remove, settle } = useMcpStore();
+  const servers = engine?.mcp?.servers ?? [];
+  const warnings = engine?.mcp?.warnings ?? [];
+
+  // The device writes a fresh result (new mcp_checked_at) when a change lands.
+  useEffect(() => settle(), [engine?.mcp_checked_at, settle]);
   const [name, setName] = useState("");
   const [url, setUrl] = useState("");
 
   async function removeServer(serverName: string) {
     if (!confirm(`Remove MCP server "${serverName}"?`)) return;
-    await remove(serverName);
+    if (engineId) await remove(engineId, serverName);
   }
 
   async function addServer() {
     if (!name.trim() || !url.trim()) return;
-    await add(name.trim(), url.trim());
+    if (engineId) await add(engineId, name.trim(), url.trim());
     setName("");
     setUrl("");
   }
 
   return (
-    <Sheet open={activeSheet === "mcp"} onClose={closeSheet} title="MCP servers">
+    <>
       <div className="mb-3">
         {loading && <div className="text-[12.5px] text-text-3 text-center py-3">Checking servers on the device…</div>}
         {!loading && servers.length === 0 && (
@@ -43,7 +51,8 @@ export function McpSheet() {
             </div>
             <button
               onClick={() => removeServer(s.name)}
-              className="flex-none border border-panel-border-soft text-danger rounded-lg py-1 px-2.5 text-xs hover:border-danger/40 transition-colors"
+              disabled={!deviceOnline}
+              className="flex-none border border-panel-border-soft text-danger rounded-lg py-1 px-2.5 text-xs hover:border-danger/40 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
             >
               Remove
             </button>
@@ -67,7 +76,7 @@ export function McpSheet() {
         />
         <button
           onClick={addServer}
-          disabled={loading}
+          disabled={loading || !deviceOnline}
           className="flex-none bg-success text-[#06281d] rounded-lg py-2.5 px-4 text-[13px] font-semibold disabled:opacity-60"
         >
           Add
@@ -77,6 +86,6 @@ export function McpSheet() {
         HTTP servers only here. Local/stdio servers and completing &quot;needs auth&quot; logins still require the ttyd/SSH
         terminal.
       </div>
-    </Sheet>
+    </>
   );
 }

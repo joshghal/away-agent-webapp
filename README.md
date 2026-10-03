@@ -1,5 +1,7 @@
 # AwayAgent
 
+> **Setting up a device or handing this over? Follow [docs/SETUP.md](docs/SETUP.md)** — it is the complete, step-by-step guide (and lists the old instructions that no longer apply).
+
 Drive `claude` sessions on your own machines from any browser.
 
 ```

@@ -1,45 +1,31 @@
 import { create } from "zustand";
-import type { McpListResponse, McpServerEntry } from "@/lib/shared/ws-protocol";
 import { send } from "@/lib/client/hub";
 
+// The server list itself lives on each device's engines row (engineStore); this
+// only tracks an in-flight change and its error. `claude mcp list` health-checks
+// every server, so a change takes ~15s to show up.
 type McpState = {
-  servers: McpServerEntry[];
-  warnings: string[];
-  checkedAt: string | null;
-  // A refresh/add/remove was sent and the device hasn't written a new result yet
-  // (`claude mcp list` health-checks every server and takes ~15s).
   loading: boolean;
   error: string | null;
-  refresh: (force?: boolean) => Promise<void>;
-  add: (name: string, url: string) => Promise<void>;
-  remove: (name: string) => Promise<void>;
-  setFromEngine: (mcp: McpListResponse | null, checkedAt: string | null) => void;
+  refresh: (engineId: string) => Promise<void>;
+  add: (engineId: string, name: string, url: string) => Promise<void>;
+  remove: (engineId: string, name: string) => Promise<void>;
+  settle: () => void;
   setError: (message: string) => void;
 };
 
-export const useMcpStore = create<McpState>((set, get) => ({
-  servers: [],
-  warnings: [],
-  checkedAt: null,
-  loading: false,
-  error: null,
-  refresh: async (force = false) => {
-    if (!force) return; // non-forced reads come straight from the engine row
+export const useMcpStore = create<McpState>((set) => {
+  async function run(engineId: string, msg: Parameters<typeof send>[0]) {
     set({ loading: true, error: null });
-    if (!(await send({ type: "mcp_refresh" }))) set({ loading: false });
-  },
-  add: async (name, url) => {
-    set({ loading: true, error: null });
-    if (!(await send({ type: "mcp_add", name, url }))) set({ loading: false });
-  },
-  remove: async (name) => {
-    set({ loading: true, error: null });
-    if (!(await send({ type: "mcp_remove", name }))) set({ loading: false });
-  },
-  setFromEngine: (mcp, checkedAt) => {
-    if (!mcp) return;
-    const fresh = checkedAt !== get().checkedAt;
-    set({ servers: mcp.servers, warnings: mcp.warnings, checkedAt, ...(fresh ? { loading: false } : {}) });
-  },
-  setError: (error) => set({ error, loading: false }),
-}));
+    if (!(await send(msg, engineId))) set({ loading: false, error: "That device is offline." });
+  }
+  return {
+    loading: false,
+    error: null,
+    refresh: (engineId) => run(engineId, { type: "mcp_refresh" }),
+    add: (engineId, name, url) => run(engineId, { type: "mcp_add", name, url }),
+    remove: (engineId, name) => run(engineId, { type: "mcp_remove", name }),
+    settle: () => set({ loading: false }),
+    setError: (error) => set({ error, loading: false }),
+  };
+});

@@ -6,8 +6,7 @@ import { SessionInfoChips } from "@/components/app-shell/SessionInfoChips";
 import { TabStrip } from "@/components/app-shell/TabStrip";
 import { ChatArea } from "@/components/chat/ChatArea";
 import { ConfigSheet } from "@/components/sheets/ConfigSheet";
-import { AuthSheet } from "@/components/sheets/AuthSheet";
-import { McpSheet } from "@/components/sheets/McpSheet";
+import { DeviceSheet } from "@/components/sheets/DeviceSheet";
 import { NewSessionSheet } from "@/components/sheets/NewSessionSheet";
 import { LoginGate } from "@/components/auth/LoginGate";
 import { useSessionStore } from "@/store/sessionStore";
@@ -60,8 +59,7 @@ function App() {
       <SessionInfoChips />
       <ChatArea />
       <ConfigSheet />
-      <AuthSheet />
-      <McpSheet />
+      <DeviceSheet />
       <NewSessionSheet />
     </AppShell>
   );

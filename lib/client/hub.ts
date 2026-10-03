@@ -312,7 +312,6 @@ function syncEngineDerivedStores(): void {
   const row = engineId ? useEngineStore.getState().engines[engineId] : undefined;
   if (!row) return;
   if (row.claude_auth) useAuthStore.getState().setStatus(row.claude_auth);
-  useMcpStore.getState().setFromEngine(row.mcp, row.mcp_checked_at);
 }
 
 function onAvailabilityChange(): void {
