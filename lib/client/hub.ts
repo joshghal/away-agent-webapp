@@ -256,6 +256,24 @@ export function browseDirs(path?: string): Promise<BrowseResult> {
   });
 }
 
+// Deletes the session's transcript file on its own device (killing it first if
+// it's the live one). Resolves once the device confirms the file is gone — the
+// DB row is deleted separately, afterwards, by the caller (see deleteSession.ts);
+// doing that only after this confirms keeps a reconnecting engine's own
+// transcript re-scan from resurrecting a "deleted" session.
+const pendingDelete = new Map<string, { resolve: () => void; reject: (e: Error) => void }>();
+
+export function deleteSessionFile(engineId: string, project: string, sessionId: string): Promise<void> {
+  const requestId = Math.random().toString(36).slice(2);
+  return new Promise((resolve, reject) => {
+    pendingDelete.set(requestId, { resolve, reject });
+    setTimeout(() => {
+      if (pendingDelete.delete(requestId)) reject(new Error("The device didn't answer in time"));
+    }, 15_000);
+    void send({ type: "delete_session", request_id: requestId, project, sessionId }, engineId);
+  });
+}
+
 // ---------------------------------------------------------------------------
 // Incoming
 // ---------------------------------------------------------------------------
@@ -356,6 +374,15 @@ async function handleServerEvent(evt: ServerMessage, engineId: string): Promise<
       if (!pending) break;
       pendingBrowse.delete(evt.request_id);
       if (evt.type === "browse_result") pending.resolve({ path: evt.path, parent: evt.parent, dirs: evt.dirs });
+      else pending.reject(new Error(evt.message));
+      break;
+    }
+    case "session_deleted":
+    case "session_delete_error": {
+      const pending = pendingDelete.get(evt.request_id);
+      if (!pending) break;
+      pendingDelete.delete(evt.request_id);
+      if (evt.type === "session_deleted") pending.resolve();
       else pending.reject(new Error(evt.message));
       break;
     }

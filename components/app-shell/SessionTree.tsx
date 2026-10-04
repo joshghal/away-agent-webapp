@@ -1,13 +1,14 @@
 "use client";
 import { useState } from "react";
-import { FolderIcon, ChevronRightIcon, ChatIcon, PlusIcon, LaptopIcon } from "@/components/icons/icons";
+import { FolderIcon, ChevronRightIcon, ChatIcon, PlusIcon, LaptopIcon, TrashIcon } from "@/components/icons/icons";
 import { Highlighted } from "./Highlighted";
 import { useSidebarStore } from "@/store/sidebarStore";
 import { useSessionStore } from "@/store/sessionStore";
 import { switchProject } from "@/lib/client/switchProject";
+import { deleteSession } from "@/lib/client/deleteSession";
 import { timeAgo } from "@/lib/client/timeAgo";
 import { splitSearchWords, matchesAllWords } from "@/lib/client/searchHighlight";
-import { useEngineStore } from "@/store/engineStore";
+import { useEngineStore, isEngineOnline } from "@/store/engineStore";
 import { useAuthStore } from "@/store/authStore";
 import { useUiStore } from "@/store/uiStore";
 import type { EngineRow, ProjectDirectory } from "@/lib/shared/ws-protocol";
@@ -167,6 +168,21 @@ function DeviceFolders({ engineId, dirs }: { engineId: string; dirs: ProjectDire
   const { currentProject, currentSessionId } = useSessionStore();
   const setPreferred = useEngineStore((s) => s.setPreferred);
   const words = splitSearchWords(searchQuery);
+  const [deletingId, setDeletingId] = useState<string | null>(null);
+  const online = isEngineOnline(engineId);
+
+  async function remove(projectPath: string, sessionId: string, title: string) {
+    if (!online) return;
+    if (!confirm(`Delete "${title}"? This can't be undone.`)) return;
+    setDeletingId(sessionId);
+    try {
+      await deleteSession(engineId, projectPath, sessionId);
+    } catch (e) {
+      alert(`Couldn't delete: ${(e as Error).message}`);
+    } finally {
+      setDeletingId(null);
+    }
+  }
 
   return (
     <div>
@@ -217,7 +233,7 @@ function DeviceFolders({ engineId, dirs }: { engineId: string; dirs: ProjectDire
                     <div
                       key={s.sessionId}
                       onClick={() => switchProject(dir.projectPath, { sessionId: s.sessionId, title: s.title })}
-                      className={`flex items-start gap-2 py-1.5 px-2 rounded-lg cursor-pointer mb-px transition-colors ${
+                      className={`group flex items-start gap-2 py-1.5 px-2 rounded-lg cursor-pointer mb-px transition-colors ${
                         active ? "bg-accent-soft" : "hover:bg-hover"
                       }`}
                     >
@@ -235,6 +251,21 @@ function DeviceFolders({ engineId, dirs }: { engineId: string; dirs: ProjectDire
                           {timeAgo(s.modified)} · {s.messageCount} msgs
                         </div>
                       </div>
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          void remove(dir.projectPath, s.sessionId, s.title);
+                        }}
+                        disabled={deletingId === s.sessionId}
+                        title={online ? "Delete session" : "Device offline — can't delete"}
+                        className={`w-[22px] h-[22px] mt-0.5 rounded-md flex-none flex items-center justify-center transition-colors ${
+                          online
+                            ? "text-text-3 opacity-0 group-hover:opacity-100 hover:bg-danger-soft hover:text-danger disabled:opacity-50"
+                            : "text-text-3/30 opacity-0 group-hover:opacity-100 cursor-not-allowed"
+                        }`}
+                      >
+                        <TrashIcon className="w-[13px] h-[13px]" />
+                      </button>
                     </div>
                   );
                 })}

@@ -1,4 +1,4 @@
-import { readFileSync, existsSync, statSync, readdirSync, openSync, readSync, closeSync } from "node:fs";
+import { readFileSync, existsSync, statSync, readdirSync, openSync, readSync, closeSync, unlinkSync } from "node:fs";
 import { join } from "node:path";
 import { HOME } from "./env";
 import type { HistoryItem, ImagePart } from "../shared/ws-protocol";
@@ -7,6 +7,14 @@ const CLAUDE_PROJECTS_DIR = join(HOME, ".claude", "projects");
 
 export function encodeProjectPath(p: string): string {
   return p.replace(/\//g, "-");
+}
+
+// The DB row is only deleted by the browser (owner-only RLS policy) after this
+// confirms the file is gone — otherwise the engine's own periodic re-scan of
+// local transcripts would resurrect a "deleted" session from the leftover file.
+export function deleteSessionFile(project: string, sessionId: string): void {
+  const file = join(CLAUDE_PROJECTS_DIR, encodeProjectPath(project), `${sessionId}.jsonl`);
+  if (existsSync(file)) unlinkSync(file);
 }
 
 // Strip leading auto-injected context blocks (VS Code sends these ahead of what the

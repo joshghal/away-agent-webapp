@@ -5,8 +5,8 @@ import { createClient, type RealtimeChannel } from "@supabase/supabase-js";
 import { SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY, ENGINE_ID, ENGINE_EMAIL, enginePassword } from "./config";
 import { state } from "../lib/server/singleton";
 import { createConnection, type Connection, type SessionMessage } from "../lib/server/connection";
-import { isAlive, killLive, bypassAllowed } from "../lib/server/liveSessions";
-import { listDirectories } from "../lib/server/sessions";
+import { isAlive, killLive, withProjectLock, bypassAllowed } from "../lib/server/liveSessions";
+import { listDirectories, deleteSessionFile } from "../lib/server/sessions";
 import { getAuthStatus, claudeCliInstalled } from "../lib/server/authStatus";
 import { getMcpServersCached, addMcpServer, removeMcpServer } from "../lib/server/mcp";
 import { startStallDetection } from "../lib/server/stallDetection";
@@ -137,8 +137,8 @@ function onTabStatus(msg: ServerMessage): void {
 // ---------------------------------------------------------------------------
 // Engine-level requests (filesystem / CLI config, not tied to a session).
 // ---------------------------------------------------------------------------
-type EngineMessage = Extract<ClientMessage, { type: "browse_dirs" | "mcp_refresh" | "mcp_add" | "mcp_remove" | "auth_refresh" }>;
-const ENGINE_LEVEL = new Set(["browse_dirs", "mcp_refresh", "mcp_add", "mcp_remove", "auth_refresh"]);
+type EngineMessage = Extract<ClientMessage, { type: "browse_dirs" | "mcp_refresh" | "mcp_add" | "mcp_remove" | "auth_refresh" | "delete_session" }>;
+const ENGINE_LEVEL = new Set(["browse_dirs", "mcp_refresh", "mcp_add", "mcp_remove", "auth_refresh", "delete_session"]);
 
 function browse(requestId: string, path = HOME): ServerMessage {
   if (!existsSync(path) || !statSync(path).isDirectory()) {
@@ -193,6 +193,20 @@ async function handleEngineMessage(clientId: string, msg: EngineMessage): Promis
       break;
     case "auth_refresh":
       await saveEngine({ claude_auth: getAuthStatus() });
+      break;
+    case "delete_session":
+      try {
+        const live = state.liveSessions.get(msg.project);
+        // Only stop it if THIS session is the one actually running — the project
+        // may have moved on to a different, newer live session since.
+        if (live && live.sessionId === msg.sessionId) {
+          await withProjectLock(msg.project, () => killLive(msg.project));
+        }
+        deleteSessionFile(msg.project, msg.sessionId);
+        await publish(clientId, { type: "session_deleted", request_id: msg.request_id });
+      } catch (e) {
+        await publish(clientId, { type: "session_delete_error", request_id: msg.request_id, message: (e as Error).message });
+      }
       break;
   }
 }

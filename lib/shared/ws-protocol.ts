@@ -53,7 +53,13 @@ export type ClientMessage =
   | { type: "mcp_refresh" }
   | { type: "mcp_add"; name: string; url: string }
   | { type: "mcp_remove"; name: string }
-  | { type: "auth_refresh" };
+  | { type: "auth_refresh" }
+  // Deletes the session's local transcript file on the device (and stops it
+  // first if it's the live session for that project). The browser deletes the
+  // `sessions`/`session_events` DB rows itself once this confirms the file is
+  // gone — doing it in that order means an offline-then-reappearing engine
+  // can never resurrect a "deleted" session from a leftover file on disk.
+  | { type: "delete_session"; request_id: string; project: string; sessionId: string };
 
 // ---- Server -> Client ----
 export type ServerMessage =
@@ -85,7 +91,9 @@ export type ServerMessage =
   | { type: "browse_error"; request_id: string; message: string }
   | { type: "mcp_error"; message: string }
   // Refused to resume: another app (VS Code, a terminal) is writing this session now.
-  | { type: "session_busy"; session_id: string; seconds_ago: number };
+  | { type: "session_busy"; session_id: string; seconds_ago: number }
+  | { type: "session_deleted"; request_id: string }
+  | { type: "session_delete_error"; request_id: string; message: string };
 
 // What engines broadcast on the "hub" Realtime channel. `to` is the browser
 // tab's client id, or null for messages every tab should see (tab_status).

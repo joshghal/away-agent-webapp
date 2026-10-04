@@ -31,7 +31,7 @@ type AttachOptions = {
 
 export type SessionMessage = Exclude<
   ClientMessage,
-  { type: "browse_dirs" | "mcp_refresh" | "mcp_add" | "mcp_remove" | "auth_refresh" }
+  { type: "browse_dirs" | "mcp_refresh" | "mcp_add" | "mcp_remove" | "auth_refresh" | "delete_session" }
 >;
 
 export type Connection = {
