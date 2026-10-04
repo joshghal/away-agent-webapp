@@ -100,12 +100,13 @@ export function SessionTree() {
                 onClick={() => toggleDevice(engineId)}
                 aria-expanded={open}
                 title={engine?.fingerprint ? `Device fingerprint ${engine.fingerprint}` : undefined}
-                className="w-full min-w-0 flex items-center gap-2 text-left"
+                className="w-full min-w-0 flex items-start gap-2 text-left"
               >
-                <span className={`flex flex-none text-text-3 transition-transform ${open ? "rotate-90" : ""}`}>
+                {/* Top-aligned with the device name line (12.5px text, ~19px line). */}
+                <span className={`flex flex-none mt-[4.5px] text-text-3 transition-transform ${open ? "rotate-90" : ""}`}>
                   <ChevronRightIcon className="w-[10px] h-[10px]" />
                 </span>
-                <LaptopIcon className={`w-[15px] h-[15px] flex-none ${isOnline ? "text-text-2" : "text-text-3"}`} />
+                <LaptopIcon className={`w-[15px] h-[15px] flex-none mt-[2px] ${isOnline ? "text-text-2" : "text-text-3"}`} />
                 <span className="flex-1 min-w-0">
                   <span className="flex items-center gap-1.5">
                     <span className={`text-[12.5px] font-semibold overflow-hidden text-ellipsis whitespace-nowrap ${isOnline ? "text-text-1" : "text-text-3"}`}>
@@ -129,7 +130,7 @@ export function SessionTree() {
                     </span>
                   )}
                 </span>
-                {!open && <span className="flex-none text-[10.5px] text-text-3">{byDevice.get(engineId)!.length}</span>}
+                {!open && <span className="flex-none mt-[2px] text-[10.5px] text-text-3">{byDevice.get(engineId)!.length}</span>}
               </button>
               {engine && (
                 // Aligned with the text column: chevron (10) + gap (8) + icon (15) + gap (8).
