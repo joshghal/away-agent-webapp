@@ -2,7 +2,7 @@
 import { useEffect, useRef, useState } from "react";
 import { ChevronRightIcon } from "@/components/icons/icons";
 
-type Option = { value: string; label: string };
+type Option = { value: string; label: string; description?: string };
 
 // Headless — no real <select> underneath at all. The original kept a hidden real
 // <select> specifically so vanilla JS could treat it as a .value/change-event
@@ -76,6 +76,7 @@ export function Dropdown({
               }`}
             >
               {opt.label}
+              {opt.description && <div className="text-[10.5px] text-text-3 mt-0.5">{opt.description}</div>}
             </div>
           ))}
         </div>

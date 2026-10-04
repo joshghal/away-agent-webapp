@@ -109,6 +109,7 @@ export type EngineRow = {
   mcp_checked_at: string | null;
   allow_bypass?: boolean;
   capabilities?: string[];
+  models?: { value: string; label: string; description: string }[] | null;
   tags?: string[];
   tasks_enabled?: boolean;
   last_seen_at: string;

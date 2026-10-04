@@ -161,7 +161,7 @@ export function spawnFor(project: string, opts: SpawnOptions = {}): LiveSessionE
     "--verbose",
   ];
   if (resumeSessionId) args.push("--resume", resumeSessionId);
-  if (model) args.push("--model", model);
+  if (model && model !== "default") args.push("--model", model); // "default" = let the CLI pick
   if (effort) args.push("--effort", effort);
   if (permissionMode && VALID_PERMISSION_MODES.has(permissionMode)) args.push("--permission-mode", permissionMode);
   if (permissionMode === "bypassPermissions") args.push("--allow-dangerously-skip-permissions"); // the CLI ignores bypass mode without it

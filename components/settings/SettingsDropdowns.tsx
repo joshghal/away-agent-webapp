@@ -6,14 +6,20 @@ import { useTargetEngine } from "@/lib/client/targetEngine";
 import { applySettingsLive } from "@/lib/client/applySettingsLive";
 import { MODEL_OPTIONS, EFFORT_OPTIONS, PERMISSION_MODE_OPTIONS, MCP_PRESET_OPTIONS } from "@/lib/shared/constants";
 
-const KNOWN_MODELS = new Set(MODEL_OPTIONS.map((o) => o.value));
 
 // The three inline pills that live directly in the input bar — visible and
 // immediately effective, not hidden in a settings sheet, per an explicit request
 // that changing them should be easy to find and should actually take effect.
 export function InlineSettingsDropdowns() {
   const { model, effort, permissionMode, setModel, setEffort, setPermissionMode } = useSettingsStore();
-  const isCustom = !KNOWN_MODELS.has(model) || model === "custom";
+  // The list comes from the claude CLI on the device this session runs on (each
+  // device's CLI version offers different models); hardcoded aliases only until
+  // that device has reported one.
+  const target = useTargetEngine();
+  const deviceModels = target?.models?.map((m) => ({ value: m.value, label: m.label, description: m.description }));
+  const modelOptions = [...(deviceModels?.length ? deviceModels : MODEL_OPTIONS), { value: "custom", label: "Custom…" }]
+    .filter((o, i, all) => all.findIndex((x) => x.value === o.value) === i);
+  const isCustom = !modelOptions.some((o) => o.value === model) || model === "custom";
   const [customDraft, setCustomDraft] = useState(isCustom ? model : "");
   const inputRef = useRef<HTMLInputElement>(null);
 
@@ -56,7 +62,7 @@ export function InlineSettingsDropdowns() {
       ) : (
         <Dropdown
           value={model}
-          options={MODEL_OPTIONS}
+          options={modelOptions}
           compact
           openUpward
           onChange={(v) => {

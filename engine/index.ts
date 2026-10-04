@@ -16,6 +16,7 @@ import { createOutbound, type Publish } from "./outbound";
 import { deviceInfo } from "./device";
 import { detectCapabilities, engineTags, TASKS_ENABLED, TASK_SLOTS, TASK_GIT_PUSH } from "./capabilities";
 import { createTaskRunner } from "./tasks";
+import { listCliModels } from "./models";
 import type { ClientMessage, HubEnvelope, ServerMessage } from "../lib/shared/ws-protocol";
 
 const SCAN_INTERVAL_MS = 2 * 60 * 1000;
@@ -390,6 +391,7 @@ async function main(): Promise<void> {
       version: VERSION,
       allow_bypass: bypassAllowed(),
       capabilities: detectCapabilities(),
+      models: await listCliModels(),
       tags: engineTags(),
       tasks_enabled: TASKS_ENABLED,
       task_slots: TASK_SLOTS,
@@ -462,6 +464,8 @@ async function main(): Promise<void> {
   }, VIEWER_GC_MS);
   void housekeeping();
   setInterval(() => void housekeeping(), 60 * 60 * 1000);
+  // A CLI update (e.g. brew upgrade) brings new models without an engine restart.
+  setInterval(() => void listCliModels().then((models) => models && saveEngine({ models })), 60 * 60 * 1000);
 
   process.on("SIGINT", () => void shutdown("SIGINT"));
   process.on("SIGTERM", () => void shutdown("SIGTERM"));
