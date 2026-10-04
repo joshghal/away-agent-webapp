@@ -3,6 +3,7 @@ import { useEffect, useState } from "react";
 import { useMcpStore } from "@/store/mcpStore";
 import { useAuthStore } from "@/store/authStore";
 import { useEngineStore } from "@/store/engineStore";
+import { timeAgo } from "@/lib/client/timeAgo";
 
 const DOT_COLOR = { connected: "bg-success", needs_auth: "bg-warn", failed: "bg-danger" };
 
@@ -11,9 +12,11 @@ export function McpPanel() {
   const engineId = useAuthStore((s) => s.engineId);
   const engine = useEngineStore((s) => (engineId ? s.engines[engineId] : undefined));
   const deviceOnline = useEngineStore((s) => !!engineId && s.online.includes(engineId));
-  const { loading, error, add, remove, settle } = useMcpStore();
+  const { loading, error, add, remove, refresh, settle } = useMcpStore();
   const servers = engine?.mcp?.servers ?? [];
   const warnings = engine?.mcp?.warnings ?? [];
+  const checkError = engine?.mcp?.error ?? null;
+  const checkedAt = engine?.mcp_checked_at ?? null;
 
   // The device writes a fresh result (new mcp_checked_at) when a change lands.
   useEffect(() => settle(), [engine?.mcp_checked_at, settle]);
@@ -34,10 +37,32 @@ export function McpPanel() {
 
   return (
     <>
+      <div className="flex items-center justify-between gap-2 mb-1 text-[10.5px] text-text-3">
+        <span>
+          {checkedAt ? `Checked ${timeAgo(checkedAt)}` : "Not checked yet"}
+          {servers.length > 0 ? ` · ${servers.filter((s) => s.status === "connected").length}/${servers.length} connected` : ""}
+        </span>
+        <button
+          onClick={() => engineId && refresh(engineId)}
+          disabled={loading || !deviceOnline}
+          title={deviceOnline ? "Run `claude mcp list` on the device again (takes ~15s)" : "Device offline"}
+          className="flex-none border border-panel-border-soft rounded-md px-2 py-0.5 hover:text-text-1 hover:bg-active transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+        >
+          {loading ? "Checking…" : "Refresh"}
+        </button>
+      </div>
       <div className="mb-3">
-        {loading && <div className="text-[12.5px] text-text-3 text-center py-3">Checking servers on the device…</div>}
+        {loading && <div className="text-[12.5px] text-text-3 text-center py-3">Checking servers on the device (~15s)…</div>}
         {!loading && servers.length === 0 && (
-          <div className="text-[12.5px] text-text-3 text-center py-5">No MCP status reported by a device yet.</div>
+          <div className={`text-[12.5px] text-center py-5 ${checkError ? "text-warn" : "text-text-3"}`}>
+            {!engine?.mcp
+              ? deviceOnline
+                ? "This device hasn't reported its MCP servers yet. Press Refresh."
+                : "This device hasn't reported its MCP servers yet. It will when it's back online."
+              : checkError
+                ? `Couldn't check MCP servers: ${checkError}`
+                : "No MCP servers are configured on this device."}
+          </div>
         )}
         {servers.map((s) => (
           <div key={s.name} className="flex items-center gap-2.5 py-2.5 border-b border-panel-border-soft last:border-0">
@@ -83,8 +108,8 @@ export function McpPanel() {
         </button>
       </div>
       <div className="text-[10.5px] text-text-3 leading-relaxed">
-        HTTP servers only here. Local/stdio servers and completing &quot;needs auth&quot; logins still require the ttyd/SSH
-        terminal.
+        Only HTTP servers can be added here. Local (stdio) servers, and finishing a &quot;Needs authentication&quot;
+        sign-in, are done on the device itself: <code>claude mcp add</code> or <code>/mcp</code> in Claude Code.
       </div>
     </>
   );

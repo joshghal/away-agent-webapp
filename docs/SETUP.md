@@ -238,7 +238,7 @@ supabase/migrations/                      database schema and security rules
 ### Files that stay on each device (never committed)
 | File / place | Contains |
 |---|---|
-| `.env.engine` | `SUPABASE_URL`, `SUPABASE_PUBLISHABLE_KEY`, `ENGINE_ID`, `ENGINE_EMAIL` (public values; on Linux also `ENGINE_PASSWORD`) |
+| `.env.engine` | `SUPABASE_URL`, `SUPABASE_PUBLISHABLE_KEY`, `ENGINE_ID`, `ENGINE_EMAIL` (public values; on Linux also `ENGINE_PASSWORD`). Optional: `ALLOW_BYPASS_PERMISSIONS=1` lets the website start sessions in "Bypass permissions" mode on this device; leave it out to keep that off (restart the engine after changing it). |
 | macOS Keychain `away-agent-engine / <id>` | the engine's password |
 | `~/Library/LaunchAgents/com.awayagent.engine.plist` | the background service |
 | `~/.claude/` | Claude Code's own login and transcripts (the originals) |
@@ -248,4 +248,8 @@ supabase/migrations/                      database schema and security rules
 - Database rules (RLS): owners see everything only with 2FA + the login slot; each engine can read shared session data but write only its own rows, read only its own command inbox, and cannot send commands.
 - Live output travels on a per-device private channel (`engine:<id>`) that only that device can send to and only the owner can read; `presence` carries only online status.
 - One-time Claude login codes are validated, used once, and blanked in the database right after.
-- Engines connect outbound only; no ports are opened on any device.
+- Engines connect outbound only; no ports are opened on any device. All traffic is TLS (HTTPS/WSS).
+- Claude's replies are sanitized before display (DOMPurify; no scripts, forms, styles, `javascript:` links or remote images), so text Claude quotes from a web page or file can't run code in your browser.
+- The website sends a strict Content Security Policy (per-request nonce): only its own scripts run, and it can only connect to Supabase.
+- "Bypass permissions" is refused by an engine unless that device's `.env.engine` sets `ALLOW_BYPASS_PERMISSIONS=1`; the website alone can't turn it on.
+- Access tokens expire after 15 minutes (refreshed silently); minimum password length is 12.

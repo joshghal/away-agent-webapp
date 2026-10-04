@@ -6,8 +6,8 @@ function Chip({ text, copyValue }: { text: string; copyValue: string }) {
   const [copied, setCopied] = useState(false);
 
   async function copy() {
-    // navigator.clipboard requires a secure context (HTTPS/localhost) — this is
-    // served over plain http:// to the phone via Tailscale, so it may not exist.
+    // navigator.clipboard requires a secure context (HTTPS/localhost),
+    // so it may not exist (older browsers, insecure contexts).
     try {
       if (window.isSecureContext && navigator.clipboard) {
         await navigator.clipboard.writeText(copyValue);

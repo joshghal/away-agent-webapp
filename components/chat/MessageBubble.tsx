@@ -1,5 +1,5 @@
 "use client";
-import { marked } from "marked";
+import { renderMarkdown } from "@/lib/client/renderMarkdown";
 import Image from "next/image";
 
 export function UserMessage({ text }: { text: string }) {
@@ -12,16 +12,9 @@ export function UserMessage({ text }: { text: string }) {
   );
 }
 
-// dangerouslySetInnerHTML with no sanitization — matches the original's behavior
-// exactly. This is the agent's own output on a private, auth-gated, Tailscale-only
-// tool, not untrusted third-party input (explicit decision, not an oversight).
+// Always sanitized: the reply may quote attacker-written text (see renderMarkdown).
 export function AssistantMessage({ text }: { text: string }) {
-  let html: string;
-  try {
-    html = marked.parse(text, { async: false }) as string;
-  } catch {
-    html = text;
-  }
+  const html = renderMarkdown(text);
   return (
     <div className="flex gap-3 items-start mb-6 animate-message-in">
       <Image

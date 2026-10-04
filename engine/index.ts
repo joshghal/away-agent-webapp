@@ -5,7 +5,7 @@ import { createClient, type RealtimeChannel } from "@supabase/supabase-js";
 import { SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY, ENGINE_ID, ENGINE_EMAIL, enginePassword } from "./config";
 import { state } from "../lib/server/singleton";
 import { createConnection, type Connection, type SessionMessage } from "../lib/server/connection";
-import { isAlive, killLive } from "../lib/server/liveSessions";
+import { isAlive, killLive, bypassAllowed } from "../lib/server/liveSessions";
 import { listDirectories } from "../lib/server/sessions";
 import { getAuthStatus, claudeCliInstalled } from "../lib/server/authStatus";
 import { getMcpServersCached, addMcpServer, removeMcpServer } from "../lib/server/mcp";
@@ -166,7 +166,11 @@ async function handleEngineMessage(clientId: string, msg: EngineMessage): Promis
       await publish(clientId, browse(msg.request_id, msg.path));
       break;
     case "mcp_refresh":
-      await refreshMcp(true);
+      try {
+        await refreshMcp(true);
+      } catch (e) {
+        await publish(clientId, { type: "mcp_error", message: (e as Error).message });
+      }
       break;
     case "mcp_add":
     case "mcp_remove":
@@ -360,6 +364,7 @@ async function main(): Promise<void> {
       home_dir: HOME,
       default_project: DEFAULT_PROJECT_DIR,
       version: VERSION,
+      allow_bypass: bypassAllowed(),
       last_seen_at: new Date().toISOString(),
       ...device,
     },

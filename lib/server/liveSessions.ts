@@ -130,8 +130,18 @@ export type SpawnOptions = {
   mcpPreset?: string;
 };
 
+// "Bypass permissions" lets Claude run any command with no approval. Requests come
+// from the web, so a stolen browser session could ask for it; only this device's
+// own config (ALLOW_BYPASS_PERMISSIONS=1 in .env.engine) can allow it.
+export function bypassAllowed(): boolean {
+  return process.env.ALLOW_BYPASS_PERMISSIONS === "1";
+}
+
 export function spawnFor(project: string, opts: SpawnOptions = {}): LiveSessionEntry {
-  const { resumeSessionId, model, effort, permissionMode, mcpPreset } = opts;
+  const { resumeSessionId, model, effort, mcpPreset } = opts;
+  let { permissionMode } = opts;
+  const bypassRefused = permissionMode === "bypassPermissions" && !bypassAllowed();
+  if (bypassRefused) permissionMode = "default";
   console.log(
     "Spawning claude process for",
     project,
@@ -177,6 +187,18 @@ export function spawnFor(project: string, opts: SpawnOptions = {}): LiveSessionE
     unread: false,
   };
   liveSessions.set(project, entry);
+  if (bypassRefused) {
+    // After the caller has subscribed (it does so once its project lock settles).
+    setTimeout(
+      () =>
+        broadcast(project, {
+          type: "error",
+          message:
+            "Bypass permissions is turned off on this device, so this session asks before running tools. To allow it, add ALLOW_BYPASS_PERMISSIONS=1 to .env.engine on the device and restart its engine.",
+        }),
+      0
+    );
+  }
 
   let buf = "";
   child.stdout.setEncoding("utf8");

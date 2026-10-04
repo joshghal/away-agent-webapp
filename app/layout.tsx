@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { connection } from "next/server";
 import { Hanken_Grotesk, Story_Script, Ibarra_Real_Nova } from "next/font/google";
 import "./globals.css";
 
@@ -24,7 +25,9 @@ export const metadata: Metadata = {
   title: "AwayAgent",
 };
 
-export default function RootLayout({ children }: LayoutProps<"/">) {
+export default async function RootLayout({ children }: LayoutProps<"/">) {
+  // Rendered per request so Next can stamp proxy.ts's CSP nonce on its scripts.
+  await connection();
   return (
     <html
       lang="en"

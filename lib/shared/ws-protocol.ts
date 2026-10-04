@@ -99,6 +99,7 @@ export type EngineRow = {
   claude_auth: AuthStatus | null;
   mcp: McpListResponse | null;
   mcp_checked_at: string | null;
+  allow_bypass?: boolean;
   last_seen_at: string;
   fingerprint: string | null;
   device_name: string | null;
@@ -141,4 +142,5 @@ export type ProjectDirectory = {
 
 export type McpServerStatus = "connected" | "needs_auth" | "failed";
 export type McpServerEntry = { name: string; detail: string | null; status: McpServerStatus; statusText: string };
-export type McpListResponse = { servers: McpServerEntry[]; warnings: string[] };
+// error: the check itself failed (e.g. no `claude` CLI), so `servers` says nothing.
+export type McpListResponse = { servers: McpServerEntry[]; warnings: string[]; error?: string | null };

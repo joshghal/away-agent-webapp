@@ -1,6 +1,8 @@
 "use client";
 import { Dropdown } from "./Dropdown";
 import { useSettingsStore } from "@/store/settingsStore";
+import { useSessionStore } from "@/store/sessionStore";
+import { useEngineStore } from "@/store/engineStore";
 import { applySettingsLive } from "@/lib/client/applySettingsLive";
 import { MODEL_OPTIONS, EFFORT_OPTIONS, PERMISSION_MODE_OPTIONS, MCP_PRESET_OPTIONS } from "@/lib/shared/constants";
 
@@ -9,6 +11,18 @@ import { MODEL_OPTIONS, EFFORT_OPTIONS, PERMISSION_MODE_OPTIONS, MCP_PRESET_OPTI
 // that changing them should be easy to find and should actually take effect.
 export function InlineSettingsDropdowns() {
   const { model, effort, permissionMode, setModel, setEffort, setPermissionMode } = useSettingsStore();
+  // The device this session runs on (or a fresh chat would start on) decides
+  // whether bypass is allowed; its engine refuses it otherwise.
+  const currentEngineId = useSessionStore((s) => s.currentEngineId);
+  const bypassOff = useEngineStore((s) => {
+    const id = currentEngineId ?? s.preferredId ?? s.online[0];
+    return !!id && s.engines[id]?.allow_bypass === false;
+  });
+  const permissionOptions = bypassOff
+    ? PERMISSION_MODE_OPTIONS.map((o) =>
+        o.value === "bypassPermissions" ? { ...o, label: "Bypass (off on this device)" } : o
+      )
+    : PERMISSION_MODE_OPTIONS;
   return (
     <>
       <Dropdown
@@ -33,7 +47,7 @@ export function InlineSettingsDropdowns() {
       />
       <Dropdown
         value={permissionMode}
-        options={PERMISSION_MODE_OPTIONS}
+        options={permissionOptions}
         compact
         openUpward
         onChange={(v) => {

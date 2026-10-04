@@ -30,6 +30,7 @@ function splitMcpNameAndDetail(head: string): { name: string; detail: string } {
 
 export async function listMcpServers(): Promise<McpListResponse> {
   let raw: string;
+  let failure: string | null = null;
   try {
     const { stdout } = await execFileAsync("claude", ["mcp", "list"], {
       cwd: HOME,
@@ -38,7 +39,16 @@ export async function listMcpServers(): Promise<McpListResponse> {
     });
     raw = stdout;
   } catch (e) {
-    raw = ((e as { stdout?: Buffer }).stdout || "").toString();
+    const err = e as NodeJS.ErrnoException & { stdout?: Buffer | string; stderr?: Buffer | string; killed?: boolean };
+    // A non-zero exit can still print a usable list (some servers failing), so
+    // keep its stdout; only report the failure if no list came back at all.
+    raw = (err.stdout || "").toString();
+    failure =
+      err.code === "ENOENT"
+        ? "Claude Code CLI isn't installed on this device."
+        : err.killed
+          ? "`claude mcp list` timed out on this device."
+          : (err.stderr || "").toString().trim().split("\n").pop() || err.message;
   }
   const servers: McpListResponse["servers"] = [];
   const warnings: string[] = [];
@@ -70,7 +80,7 @@ export async function listMcpServers(): Promise<McpListResponse> {
       statusText: statusText.trim(),
     });
   }
-  return { servers, warnings };
+  return { servers, warnings, error: servers.length === 0 ? failure : null };
 }
 
 export async function getMcpServersCached(force = false): Promise<McpListResponse> {
