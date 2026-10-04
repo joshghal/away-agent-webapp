@@ -164,6 +164,7 @@ export function spawnFor(project: string, opts: SpawnOptions = {}): LiveSessionE
   if (model) args.push("--model", model);
   if (effort) args.push("--effort", effort);
   if (permissionMode && VALID_PERMISSION_MODES.has(permissionMode)) args.push("--permission-mode", permissionMode);
+  if (permissionMode === "bypassPermissions") args.push("--allow-dangerously-skip-permissions"); // the CLI ignores bypass mode without it
   const presetConfig = MCP_PRESETS[mcpPreset || "none"];
   if (presetConfig) args.push("--strict-mcp-config", "--mcp-config", presetConfig);
 

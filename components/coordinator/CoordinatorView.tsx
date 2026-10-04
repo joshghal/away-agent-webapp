@@ -210,6 +210,7 @@ function NewGoalSheet({ open, onClose, onCreated }: {
 function GoalDetail({ goal, onBack }: { goal: Goal; onBack: () => void }) {
   const messages = useGoalsStore((s) => s.messages[goal.id]);
   const tasks = useGoalsStore((s) => s.tasks[goal.id]) ?? [];
+  const setView = useUiStore((s) => s.setView);
   const [text, setText] = useState("");
   const [menuOpen, setMenuOpen] = useState(false);
   const [activeTask, setActiveTask] = useState<Task | null>(null);
@@ -235,7 +236,8 @@ function GoalDetail({ goal, onBack }: { goal: Goal; onBack: () => void }) {
   }
 
   const activeTasks = tasks.filter((t) => t.status === "running" || t.status === "queued");
-  const needsApproval = tasks.some((t) => t.needs_approval && t.status === "running");
+  const approvalTask = tasks.find((t) => t.needs_approval && t.status === "running");
+  const needsApproval = !!approvalTask;
   const shortTitle = goal.title.length > 45 ? goal.title.slice(0, 43) + "…" : goal.title;
 
   return (
@@ -259,7 +261,12 @@ function GoalDetail({ goal, onBack }: { goal: Goal; onBack: () => void }) {
               <span className="text-text-3">{activeTasks.length} running</span>
             )}
             {needsApproval && (
-              <span className="text-warn font-semibold">needs your approval</span>
+              <button
+                onClick={() => setActiveTask(approvalTask!)}
+                className="text-warn font-semibold underline underline-offset-2 decoration-warn/50"
+              >
+                needs your approval ↗
+              </button>
             )}
             {Number(goal.cost_usd) > 0 && (
               <span className="text-text-3">${Number(goal.cost_usd).toFixed(4)}</span>
@@ -338,9 +345,36 @@ function GoalDetail({ goal, onBack }: { goal: Goal; onBack: () => void }) {
         ))}
       </div>
 
+      {/* Approval banner */}
+      {approvalTask && (
+        <div className="flex-none mx-3 mb-2 rounded-2xl border border-warn/40 bg-warn-soft px-4 py-3 flex items-center gap-3">
+          <span className="w-2 h-2 rounded-full bg-warn animate-turn-pulse flex-none" />
+          <span className="flex-1 text-[13px] text-warn leading-snug">
+            <strong>{approvalTask.ref}</strong> is waiting for your approval
+          </span>
+          <button
+            onClick={() => {
+              if (approvalTask.session_id && approvalTask.engine_id && (approvalTask.worktree || approvalTask.project_path)) {
+                switchProject((approvalTask.worktree || approvalTask.project_path)!, {
+                  sessionId: approvalTask.session_id!,
+                  engineId: approvalTask.engine_id!,
+                  title: `${approvalTask.ref} ${approvalTask.task_type}`,
+                });
+                setView("chat");
+              } else {
+                setActiveTask(approvalTask);
+              }
+            }}
+            className="flex-none text-[12.5px] font-semibold text-warn border border-warn/40 rounded-xl px-3 py-1.5 hover:bg-warn/10 active:scale-95 transition-transform"
+          >
+            {approvalTask.session_id ? "Open →" : "Details"}
+          </button>
+        </div>
+      )}
+
       {/* Reply bar */}
-      <div className="flex-none px-3 pt-2 pb-3 border-t border-panel-border-soft">
-        <div className="flex items-end gap-2 bg-panel-strong border border-panel-border rounded-2xl px-3 py-2">
+      <div className="flex-none px-3 pt-2 pb-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] border-t border-panel-border-soft">
+        <div className="flex items-center gap-2 bg-panel-strong border border-panel-border rounded-2xl px-3 py-2">
           <textarea
             rows={1}
             value={text}

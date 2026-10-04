@@ -4,7 +4,7 @@ import { basename, dirname, join, relative, isAbsolute } from "node:path";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { state } from "../lib/server/singleton";
 import { createConnection, type Connection } from "../lib/server/connection";
-import { killLive, withProjectLock } from "../lib/server/liveSessions";
+import { bypassAllowed, killLive, withProjectLock } from "../lib/server/liveSessions";
 import { HOME } from "../lib/server/env";
 import { TASK_GIT_PUSH, TASK_SLOTS } from "./capabilities";
 import type { ServerMessage } from "../lib/shared/ws-protocol";
@@ -98,6 +98,13 @@ function prepareWorkspace(task: ClaimedTask): Workspace {
   return { cwd: sub ? join(dir, sub) : dir, top, branch, base };
 }
 
+// Unattended tasks can't wait on approvals. This device opts in with
+// ALLOW_BYPASS_PERMISSIONS=1; the worktree is the safety boundary. Cloud-side
+// requests never get to choose bypass.
+function taskPermissionMode(task: ClaimedTask): string {
+  return bypassAllowed() && task.permission_mode !== "plan" ? "bypassPermissions" : task.permission_mode;
+}
+
 function taskPrompt(task: ClaimedTask, ws: Workspace): string {
   const where = ws.branch
     ? `You are in an isolated git worktree on branch ${ws.branch} (based on ${ws.base}). Commit your work to this branch with clear messages. Do not merge, rebase onto other branches, switch branches, or push unless these instructions explicitly say so.`
@@ -158,6 +165,7 @@ export function createTaskRunner(opts: {
     log(`running in ${ws.cwd}${ws.branch ? ` on ${ws.branch}` : ""}`);
 
     let sessionId: string | null = null;
+    const autoApprove = taskPermissionMode(task) === "bypassPermissions";
     let conn: Connection | null = null;
     let settle!: (o: Outcome) => void;
     const outcome = new Promise<Outcome>((resolve) => (settle = resolve));
@@ -168,7 +176,14 @@ export function createTaskRunner(opts: {
           void beat();
           break;
         case "approval_request":
-          void beat();
+          // On a device that opted in (ALLOW_BYPASS_PERMISSIONS=1) tasks run unattended:
+          // the CLI can still route requests through the prompt tool in bypass mode.
+          if (autoApprove && conn) {
+            log(`auto-approved ${msg.tool_name}`);
+            void conn.process({ type: "approval_response", request_id: msg.request_id, allow: true, input: msg.input });
+          } else {
+            void beat();
+          }
           break;
         case "turn_complete": {
           const text = msg.result || "(no report)";
@@ -217,7 +232,7 @@ export function createTaskRunner(opts: {
 
     try {
       conn = createConnection({ send, prepareHistory });
-      await conn.process({ type: "init", project: ws.cwd, forceNew: true, permissionMode: task.permission_mode });
+      await conn.process({ type: "init", project: ws.cwd, forceNew: true, permissionMode: taskPermissionMode(task) });
       await conn.process({ type: "user_message", text: taskPrompt(task, ws) });
       const result = await outcome;
       clearInterval(timer);
