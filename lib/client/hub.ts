@@ -419,6 +419,12 @@ export function startHub(): Promise<void> {
 
   // Sidebar freshness without subscribing to every sessions-row write.
   setInterval(() => void refreshSessions(), 60_000);
+  // A device that went to sleep stops heartbeating without leaving presence.
+  setInterval(() => {
+    const before = useEngineStore.getState().online.join();
+    useEngineStore.getState().recheck();
+    if (useEngineStore.getState().online.join() !== before) onAvailabilityChange();
+  }, 15_000);
   document.addEventListener("visibilitychange", () => {
     if (document.visibilityState === "visible") void refreshSessions();
   });

@@ -380,6 +380,9 @@ async function main(): Promise<void> {
     .subscribe(async (status, err) => {
       if (status === "SUBSCRIBED") {
         await presence!.track({ kind: "engine", id: ENGINE_ID, online_at: new Date().toISOString() });
+        // Browsers also require a fresh heartbeat to show us online; send one right
+        // away on (re)connect, e.g. after waking from sleep.
+        void saveEngine({ last_seen_at: new Date().toISOString() });
         console.log(`engine "${ENGINE_ID}" online (${device.device_name}, fingerprint ${device.fingerprint})`);
       } else if (status === "CHANNEL_ERROR" || status === "TIMED_OUT") {
         console.error(`presence channel ${status}${err ? `: ${err.message}` : ""} — retrying`);
