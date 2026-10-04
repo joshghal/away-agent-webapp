@@ -39,9 +39,11 @@ export const useEngineStore = create<EngineState>((set) => ({
       const engines = Object.fromEntries(rows.map((r) => [r.id, r]));
       return { engines, loaded: true, online: computeOnline(s.present, engines) };
     }),
+  // Merge, don't replace: a Realtime UPDATE omits large unchanged (TOASTed)
+  // columns, so a heartbeat's payload arrives without `mcp` and would wipe it.
   upsertEngine: (row) =>
     set((s) => {
-      const engines = { ...s.engines, [row.id]: row };
+      const engines = { ...s.engines, [row.id]: { ...s.engines[row.id], ...row } };
       return { engines, online: computeOnline(s.present, engines) };
     }),
   setOnline: (present) => set((s) => ({ present, online: computeOnline(present, s.engines) })),
