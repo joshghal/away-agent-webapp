@@ -29,15 +29,15 @@ export const EFFORT_OPTIONS = [
   { value: "max", label: "Max" },
 ];
 
+// Alias values (sonnet/opus/haiku/fable) always resolve to the latest release
+// of that family — no hardcoded version numbers to update. "custom" is a sentinel
+// that switches the dropdown to a free-text input so you can pin any model ID.
 export const MODEL_OPTIONS = [
-  { value: "sonnet", label: "Sonnet" },
-  { value: "claude-sonnet-5", label: "Sonnet 5" },
-  { value: "opus", label: "Opus" },
-  { value: "claude-opus-5", label: "Opus 5" },
-  { value: "fable", label: "Fable" },
-  { value: "claude-fable-5-1", label: "Fable 5.1" },
-  { value: "haiku", label: "Haiku" },
-  { value: "claude-haiku-4-5-20251001", label: "Haiku 4.5" },
+  { value: "sonnet", label: "Sonnet (latest)" },
+  { value: "opus", label: "Opus (latest)" },
+  { value: "haiku", label: "Haiku (latest)" },
+  { value: "fable", label: "Fable (latest)" },
+  { value: "custom", label: "Custom…" },
 ];
 
 // Loading the full global MCP set (blender, figma-bridge, playwright, mcp-atlassian,
