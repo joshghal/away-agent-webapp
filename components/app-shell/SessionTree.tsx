@@ -94,12 +94,13 @@ export function SessionTree() {
         const account = claudeAccountLine(engine);
         return (
           <div key={engineId || "unknown"} className="mb-2">
-            <div className="flex items-start gap-1 group/device">
+            {/* One card: the collapse toggle and, under the Claude line, Manage. */}
+            <div className="rounded-lg px-1.5 py-1.5 hover:bg-hover transition-colors">
               <button
                 onClick={() => toggleDevice(engineId)}
                 aria-expanded={open}
                 title={engine?.fingerprint ? `Device fingerprint ${engine.fingerprint}` : undefined}
-                className="flex-1 min-w-0 flex items-center gap-2 px-1.5 py-1.5 rounded-lg text-left hover:bg-hover transition-colors"
+                className="w-full min-w-0 flex items-center gap-2 text-left"
               >
                 <span className={`flex flex-none text-text-3 transition-transform ${open ? "rotate-90" : ""}`}>
                   <ChevronRightIcon className="w-[10px] h-[10px]" />
@@ -131,17 +132,20 @@ export function SessionTree() {
                 {!open && <span className="flex-none text-[10.5px] text-text-3">{byDevice.get(engineId)!.length}</span>}
               </button>
               {engine && (
-                <button
-                  onClick={() => manageLogin(engineId, engine.device_name || engineId)}
-                  title={isOnline ? "This device's Claude login and MCP servers" : "Device offline — view only; changes need it online"}
-                  className={`flex-none mt-1.5 text-[10.5px] rounded-md px-1.5 py-0.5 border transition-colors ${
-                    account?.warn
-                      ? "text-warn border-warn/40 hover:bg-hover"
-                      : "text-text-3 border-panel-border-soft opacity-0 group-hover/device:opacity-100 focus:opacity-100 [@media(hover:none)]:opacity-100 hover:text-text-1"
-                  }`}
-                >
-                  {account?.warn ? "Fix" : "Manage"}
-                </button>
+                // Aligned with the text column: chevron (10) + gap (8) + icon (15) + gap (8).
+                <div className="ml-[41px] mt-1.5">
+                  <button
+                    onClick={() => manageLogin(engineId, engine.device_name || engineId)}
+                    title={isOnline ? "This device's Claude login and MCP servers" : "Device offline — view only; changes need it online"}
+                    className={`text-[10.5px] rounded-md px-2 py-0.5 border transition-colors ${
+                      account?.warn
+                        ? "text-warn border-warn/40 hover:bg-active"
+                        : "text-text-3 border-panel-border-soft hover:text-text-1 hover:bg-active"
+                    }`}
+                  >
+                    {account?.warn ? "Fix" : "Manage"}
+                  </button>
+                </div>
               )}
             </div>
             {/* Indented with a guide line so folders read as belonging to this device. */}
