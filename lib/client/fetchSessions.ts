@@ -31,7 +31,7 @@ export async function refreshSessions(): Promise<ProjectDirectory[] | null> {
     list.push({
       sessionId: row.id,
       engineId: row.engine_id,
-      title: row.title || "Untitled session",
+      title: row.title?.trim() || "Untitled session",
       modified: row.last_message_at || row.updated_at,
       messageCount: row.message_count,
       live,

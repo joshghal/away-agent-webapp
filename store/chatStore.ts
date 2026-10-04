@@ -19,13 +19,21 @@ export type ChatEntry =
   | { kind: "working_indicator"; id: "working"; text: string }
   | { kind: "stall_warning"; id: "stall"; text: string };
 
+// loading: first page in flight · shown/total: messages loaded vs in the session
+export type HistoryMeta = { hasOlder: boolean; loadingOlder: boolean; loading: boolean; shown: number; total: number | null };
+const EMPTY_META: HistoryMeta = { hasOlder: false, loadingOlder: false, loading: false, shown: 0, total: null };
+
 let counter = 0;
 const nextId = () => `entry-${Date.now()}-${counter++}`;
 
 type ChatState = {
   entries: ChatEntry[];
+  // Long sessions load their latest messages first; older ones on demand.
+  historyMeta: HistoryMeta;
+  setHistoryMeta: (meta: Partial<HistoryMeta>) => void;
   reset: () => void;
-  loadHistory: (items: HistoryItem[]) => void;
+  // keys: stable ids (e.g. the event's database id) so re-renders reuse DOM.
+  loadHistory: (items: HistoryItem[], keys?: string[]) => void;
   appendUserMessage: (text: string) => void;
   appendAssistantDelta: (text: string) => void;
   appendStandaloneAssistantText: (text: string) => void;
@@ -49,29 +57,32 @@ function withoutFixed(entries: ChatEntry[], id: "working" | "stall"): ChatEntry[
 
 export const useChatStore = create<ChatState>((set, get) => ({
   entries: [],
+  historyMeta: EMPTY_META,
+  setHistoryMeta: (meta) => set((s) => ({ historyMeta: { ...s.historyMeta, ...meta } })),
 
-  reset: () => set({ entries: [] }),
+  reset: () => set({ entries: [], historyMeta: EMPTY_META }),
 
-  loadHistory: (items) => {
+  loadHistory: (items, keys) => {
     const entries: ChatEntry[] = [];
-    for (const item of items) {
+    items.forEach((item, i) => {
+      const id = keys?.[i] ?? nextId();
       if (item.type === "user_message") {
-        entries.push({ kind: "user_message", id: nextId(), text: item.text || "" });
+        entries.push({ kind: "user_message", id, text: item.text || "" });
       } else if (item.type === "assistant_text") {
-        entries.push({ kind: "assistant_text", id: nextId(), text: item.text, streaming: false });
+        entries.push({ kind: "assistant_text", id, text: item.text, streaming: false });
       } else if (item.type === "tool_use") {
-        entries.push({ kind: "tool_use", id: nextId(), toolUseId: item.id, name: item.name, input: item.input });
+        entries.push({ kind: "tool_use", id, toolUseId: item.id, name: item.name, input: item.input });
       } else if (item.type === "tool_result") {
         entries.push({
           kind: "tool_result",
-          id: nextId(),
+          id,
           toolUseId: item.tool_use_id,
           content: item.content,
           images: item.images,
           isError: item.is_error,
         });
       }
-    }
+    });
     set({ entries });
   },
 

@@ -100,8 +100,6 @@ export function sendInit(intent: { project: string; sessionId?: string; forceNew
   if (isEngineOnline(target)) {
     connectedEngine = target;
     void send(full, target);
-  } else {
-    void loadReadOnly(intent.forceNew ? null : intent.sessionId || null);
   }
   refreshConnectionStatus();
 }
@@ -109,39 +107,130 @@ export function sendInit(intent: { project: string; sessionId?: string; forceNew
 // ---------------------------------------------------------------------------
 // Transcripts from the hub (works with every device offline)
 // ---------------------------------------------------------------------------
-export async function fetchHistory(sessionId: string): Promise<HistoryItem[]> {
-  const items: HistoryItem[] = [];
-  const PAGE = 1000;
-  for (let from = 0; ; from += PAGE) {
-    const { data, error } = await supabase
-      .from("session_events")
-      .select("payload")
-      .eq("session_id", sessionId)
-      .order("id")
-      .range(from, from + PAGE - 1);
-    if (error) throw new Error(error.message);
-    items.push(...data.map((r) => r.payload as HistoryItem));
-    if (data.length < PAGE) return items;
+// Long sessions: show the latest page right away, older pages on demand, and
+// remember what's loaded so switching back is instant (then only new rows are fetched).
+const HISTORY_PAGE = 200;
+const HISTORY_CACHE_MAX = 20;
+type HistoryRow = { id: number; payload: HistoryItem };
+type CachedHistory = { rows: HistoryRow[]; hasOlder: boolean };
+const historyCache = new Map<string, CachedHistory>();
+// One load per session at a time: switching opens it immediately and the device's
+// history_ready / session_busy asks again moments later; both must share one run.
+const historyInflight = new Map<string, Promise<void>>();
+
+function sessionTotal(sessionId: string): number | null {
+  for (const dir of useSidebarStore.getState().directories) {
+    const hit = dir.sessions.find((s) => s.sessionId === sessionId);
+    if (hit) return hit.messageCount;
   }
+  return null;
 }
 
-async function loadHistoryInto(sessionId: string): Promise<void> {
+async function fetchRows(sessionId: string, opts: { before?: number; after?: number }): Promise<HistoryRow[]> {
+  if (opts.after !== undefined) {
+    const rows: HistoryRow[] = [];
+    for (let from = 0; ; from += 1000) {
+      const { data, error } = await supabase
+        .from("session_events")
+        .select("id, payload")
+        .eq("session_id", sessionId)
+        .gt("id", opts.after)
+        .order("id")
+        .range(from, from + 999);
+      if (error) throw new Error(error.message);
+      rows.push(...(data as HistoryRow[]));
+      if (data.length < 1000) return rows;
+    }
+  }
+  let q = supabase.from("session_events").select("id, payload").eq("session_id", sessionId);
+  if (opts.before !== undefined) q = q.lt("id", opts.before);
+  const { data, error } = await q.order("id", { ascending: false }).limit(HISTORY_PAGE);
+  if (error) throw new Error(error.message);
+  return (data as HistoryRow[]).reverse();
+}
+
+function rememberHistory(sessionId: string, cached: CachedHistory): void {
+  historyCache.delete(sessionId); // re-insert = most recently used
+  historyCache.set(sessionId, cached);
+  while (historyCache.size > HISTORY_CACHE_MAX) historyCache.delete(historyCache.keys().next().value!);
+}
+
+function renderHistory(sessionId: string, cached: CachedHistory): void {
+  const current = useSessionStore.getState().currentSessionId;
+  if (current && current !== sessionId) return; // switched away meanwhile
+  const chat = useChatStore.getState();
+  chat.loadHistory(
+    cached.rows.map((r) => r.payload),
+    cached.rows.map((r) => `ev-${r.id}`)
+  );
+  const total = sessionTotal(sessionId);
+  chat.setHistoryMeta({
+    hasOlder: cached.hasOlder,
+    loadingOlder: false,
+    loading: false,
+    shown: cached.rows.length,
+    total: total !== null ? Math.max(total, cached.rows.length) : null,
+  });
+}
+
+export function loadHistoryInto(sessionId: string): Promise<void> {
+  const running = historyInflight.get(sessionId);
+  if (running) return running;
+  const run = doLoadHistory(sessionId).finally(() => historyInflight.delete(sessionId));
+  historyInflight.set(sessionId, run);
+  return run;
+}
+
+async function doLoadHistory(sessionId: string): Promise<void> {
   try {
-    const items = await fetchHistory(sessionId);
-    const current = useSessionStore.getState().currentSessionId;
-    if (current && current !== sessionId) return; // switched away while loading
-    useChatStore.getState().loadHistory(items);
+    const cached = historyCache.get(sessionId);
+    if (cached && cached.rows.length) {
+      renderHistory(sessionId, cached);
+      const lastId = cached.rows[cached.rows.length - 1].id;
+      // If the transcript was rebuilt on the hub, old row ids are gone: start over.
+      const [{ count }, delta] = await Promise.all([
+        supabase.from("session_events").select("id", { count: "exact", head: true }).eq("id", lastId),
+        fetchRows(sessionId, { after: lastId }),
+      ]);
+      if (!count) {
+        historyCache.delete(sessionId);
+        return doLoadHistory(sessionId);
+      }
+      if (delta.length) {
+        cached.rows.push(...delta);
+        renderHistory(sessionId, cached);
+      }
+      rememberHistory(sessionId, cached);
+      return;
+    }
+    if (useSessionStore.getState().currentSessionId === sessionId) {
+      useChatStore.getState().setHistoryMeta({ loading: true, total: sessionTotal(sessionId) });
+    }
+    const rows = await fetchRows(sessionId, {});
+    const fresh: CachedHistory = { rows, hasOlder: rows.length === HISTORY_PAGE };
+    rememberHistory(sessionId, fresh);
+    renderHistory(sessionId, fresh);
   } catch (e) {
+    useChatStore.getState().setHistoryMeta({ loading: false });
     useConnectionStore.getState().setStatus("error", `Couldn't load history: ${(e as Error).message}`);
   }
 }
 
-// Only an explicitly chosen session is shown while its device is offline. Never
-// guess "latest" here: adopting a guessed id would make the next init --resume it,
-// bypassing the engine's own rules (e.g. never auto-resume in the bare home folder,
-// where the latest session may be live in VS Code or a terminal).
-async function loadReadOnly(sessionId: string | null): Promise<void> {
-  if (sessionId) await loadHistoryInto(sessionId);
+export async function loadOlderHistory(): Promise<void> {
+  const sessionId = useSessionStore.getState().currentSessionId;
+  const cached = sessionId ? historyCache.get(sessionId) : undefined;
+  const chat = useChatStore.getState();
+  if (!sessionId || !cached?.hasOlder || chat.historyMeta.loadingOlder || !cached.rows.length) return;
+  chat.setHistoryMeta({ loadingOlder: true });
+  try {
+    const older = await fetchRows(sessionId, { before: cached.rows[0].id });
+    cached.rows.unshift(...older);
+    cached.hasOlder = older.length === HISTORY_PAGE;
+    renderHistory(sessionId, cached);
+  } catch (e) {
+    chat.setHistoryMeta({ loadingOlder: false });
+    useConnectionStore.getState().setStatus("error", `Couldn't load older messages: ${(e as Error).message}`);
+  }
 }
 
 // ---------------------------------------------------------------------------

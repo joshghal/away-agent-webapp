@@ -3,7 +3,8 @@ import { useChatStore } from "@/store/chatStore";
 import { useTabsStore, tabKey } from "@/store/tabsStore";
 import { useSidebarStore } from "@/store/sidebarStore";
 import { useTabStatusStore } from "@/store/tabStatusStore";
-import { sendInit, engineFor } from "@/lib/client/hub";
+import { sendInit, engineFor, loadHistoryInto } from "@/lib/client/hub";
+import { updateUrlForCurrent } from "@/lib/client/urlSync";
 
 export function switchProject(path: string, opts: { sessionId?: string; forceNew?: boolean; title?: string } = {}): void {
   if (!path) return;
@@ -26,6 +27,13 @@ export function switchProject(path: string, opts: { sessionId?: string; forceNew
   // `title`, when the caller has it (e.g. clicking an existing session in the
   // sidebar), becomes the tab's label instead of the bare project folder name.
   useTabsStore.getState().upsertTab(path, resolvedSessionId, title);
+
+  // Show the stored history right away (cached sessions are instant) instead of
+  // waiting for the device; its history_ready later only fetches what's new.
+  if (resolvedSessionId) void loadHistoryInto(resolvedSessionId);
+  // Reflect the switch in the address bar now; a read-only (offline or busy)
+  // session never gets the device's session_init that used to do this.
+  updateUrlForCurrent(path, resolvedSessionId);
 
   sendInit({ project: path, sessionId, forceNew });
 }

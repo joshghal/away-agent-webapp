@@ -127,15 +127,18 @@ export function createMirror(supabase: SupabaseClient, engineId: string, images:
     } catch {
       return; // no transcript on disk yet (brand-new session before its first write)
     }
-    const items = readHistory(project, sessionId);
-    const withImages = Date.now() - mtime.getTime() < IMAGE_WINDOW_MS;
-
     const { data: row, error: readErr } = await supabase
       .from("sessions")
-      .select("message_count, title")
+      .select("message_count, title, mirrored_mtime")
       .eq("id", sessionId)
       .maybeSingle();
     if (readErr) throw new Error(`read session ${sessionId}: ${readErr.message}`);
+    // Unchanged since the last mirror: skip parsing a possibly tens-of-MB transcript.
+    // This is what makes opening a long session fast.
+    if (row?.mirrored_mtime && Date.parse(row.mirrored_mtime) === mtime.getTime()) return;
+
+    const items = readHistory(project, sessionId);
+    const withImages = Date.now() - mtime.getTime() < IMAGE_WINDOW_MS;
 
     if (!row) {
       const { error } = await supabase.from("sessions").insert({
