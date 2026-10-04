@@ -7,153 +7,212 @@ import { loadGoals, loadGoal, createGoal, postMessage, cancelTask, setGoalStatus
 import { switchProject } from "@/lib/client/switchProject";
 import { renderMarkdown } from "@/lib/client/renderMarkdown";
 import { timeAgo } from "@/lib/client/timeAgo";
-import { SendIcon, PlusIcon, ChevronRightIcon } from "@/components/icons/icons";
+import { SendIcon, PlusIcon, ChevronRightIcon, CloseIcon } from "@/components/icons/icons";
+import { Sheet } from "@/components/sheets/Sheet";
 
-// Goals you hand to the coordinator, its conversation with you, and the tasks it
-// delegated to your devices. Tasks run as ordinary sessions on the device: "Open
-// session" jumps to one (to watch it or approve a tool).
+// ---- Status helpers ----
 
-const STATUS_STYLE: Record<string, string> = {
-  queued: "text-text-2 border-panel-border",
-  running: "text-accent-2 border-accent-soft-border",
-  approval: "text-warn border-warn/40",
-  done: "text-success border-success/40",
-  failed: "text-danger border-danger/40",
-  cancelled: "text-text-3 border-panel-border-soft",
-  active: "text-accent-2 border-accent-soft-border",
+const DOT_CLASS: Record<string, string> = {
+  queued:   "bg-text-3",
+  running:  "bg-accent-2 animate-turn-pulse",
+  approval: "bg-warn animate-turn-pulse",
+  done:     "bg-success",
+  failed:   "bg-danger",
+  cancelled:"bg-text-3/40",
+  active:   "bg-accent-2 animate-turn-pulse",
+};
+const TEXT_CLASS: Record<string, string> = {
+  queued:   "text-text-3",
+  running:  "text-accent-2",
+  approval: "text-warn",
+  done:     "text-success",
+  failed:   "text-danger",
+  cancelled:"text-text-3",
+  active:   "text-accent-2",
+};
+const PILL_CLASS: Record<string, string> = {
+  queued:   "border-panel-border-soft text-text-2",
+  running:  "border-accent-soft-border text-accent-2 bg-accent-soft",
+  approval: "border-warn/50 text-warn bg-warn-soft",
+  done:     "border-success/30 text-success bg-success-soft",
+  failed:   "border-danger/30 text-danger bg-danger-soft",
+  cancelled:"border-panel-border-soft text-text-3",
 };
 
-function Pill({ kind, children }: { kind: string; children: React.ReactNode }) {
-  return <span className={`inline-flex items-center px-2 py-px rounded-full border text-[10.5px] font-semibold whitespace-nowrap ${STATUS_STYLE[kind] ?? STATUS_STYLE.queued}`}>{children}</span>;
+function taskKind(t: Task): string {
+  return t.needs_approval && t.status === "running" ? "approval" : t.status;
+}
+
+function Dot({ status }: { status: string }) {
+  return <span className={`inline-block w-2 h-2 rounded-full flex-none ${DOT_CLASS[status] ?? DOT_CLASS.queued}`} />;
 }
 
 function useDeviceName() {
   const engines = useEngineStore((s) => s.engines);
-  return (id: string | null | undefined) => (id ? engines[id]?.device_name || id : "any device");
+  return (id: string | null | undefined) => id ? (engines[id]?.device_name || id) : "any device";
 }
+
+// ---- Root ----
 
 export function CoordinatorView() {
   const { goals, loaded, selectedId, select, error, setError } = useGoalsStore();
   const selected = goals.find((g) => g.id === selectedId) ?? null;
 
-  useEffect(() => {
-    subscribeCoordinator();
-    void loadGoals();
-  }, []);
-  useEffect(() => {
-    if (selectedId) void loadGoal(selectedId);
-  }, [selectedId]);
+  useEffect(() => { subscribeCoordinator(); void loadGoals(); }, []);
+  useEffect(() => { if (selectedId) void loadGoal(selectedId); }, [selectedId]);
 
   return (
-    <div className="flex-1 min-h-0 flex">
-      <div className={`${selected ? "hidden md:flex" : "flex"} w-full md:w-[280px] flex-none flex-col border-r border-panel-border-soft min-h-0`}>
-        <NewGoal onCreated={(id) => select(id)} />
-        <div className="flex-1 min-h-0 overflow-y-auto px-3 pb-3">
-          {!loaded && <div className="text-[12.5px] text-text-3 px-2 py-4">Loading goals…</div>}
-          {loaded && !goals.length && (
-            <div className="text-[12.5px] text-text-3 px-2 py-4 leading-relaxed">
-              No goals yet. Describe something you want done; the coordinator splits it into tasks and sends them to your devices.
-            </div>
-          )}
-          {goals.map((g) => (
-            <button
-              key={g.id}
-              onClick={() => select(g.id)}
-              className={`w-full text-left rounded-lg px-2.5 py-2 mb-1 transition-colors ${g.id === selectedId ? "bg-active" : "hover:bg-hover"}`}
-            >
-              <div className="text-[13px] text-text-1 line-clamp-2">{g.title}</div>
-              <div className="flex items-center gap-1.5 mt-1 text-[10.5px] text-text-3">
-                <Pill kind={g.status}>{g.status}</Pill>
-                {g.work && <Pill kind="approval">work</Pill>}
-                <span>{timeAgo(g.updated_at)}</span>
-              </div>
-            </button>
-          ))}
-        </div>
+    <div className="flex-1 min-h-0 flex overflow-hidden">
+      {/* Goal list — full screen on mobile when nothing selected, left panel on desktop */}
+      <div className={`${selected ? "hidden md:flex" : "flex"} w-full md:w-72 flex-none flex-col min-h-0 border-r border-panel-border-soft`}>
+        <GoalList
+          goals={goals}
+          loaded={loaded}
+          selectedId={selectedId}
+          onSelect={select}
+          onCreated={(id) => select(id)}
+        />
       </div>
-      <div className={`${selected ? "flex" : "hidden md:flex"} flex-1 min-w-0 flex-col min-h-0`}>
+
+      {/* Detail — full screen on mobile when selected, right panel on desktop */}
+      <div className={`${selected ? "flex" : "hidden md:flex"} flex-1 min-w-0 flex-col min-h-0 overflow-hidden`}>
         {error && (
-          <div role="alert" className="mx-4 mt-2 rounded-lg border border-danger/40 bg-danger-soft px-3 py-2 text-[12.5px] text-danger flex gap-2">
+          <div role="alert" className="mx-3 mt-2 mb-0 rounded-xl border border-danger/40 bg-danger-soft px-3 py-2 text-[12.5px] text-danger flex gap-2 items-start flex-none">
             <span className="flex-1">{error}</span>
-            <button onClick={() => setError(null)} className="text-text-2 hover:text-text-1">Dismiss</button>
+            <button onClick={() => setError(null)} aria-label="Dismiss"><CloseIcon className="w-4 h-4 opacity-60" /></button>
           </div>
         )}
-        {selected ? <GoalDetail goal={selected} onBack={() => select(null)} /> : <EmptyDetail />}
+        {selected
+          ? <GoalDetail goal={selected} onBack={() => select(null)} />
+          : <EmptyState />}
       </div>
     </div>
   );
 }
 
-function EmptyDetail() {
-  const engines = useEngineStore((s) => s.engines);
-  const accepting = Object.values(engines).filter((e) => e.tasks_enabled);
+// ---- Goal list ----
+
+function GoalList({ goals, loaded, selectedId, onSelect, onCreated }: {
+  goals: Goal[]; loaded: boolean; selectedId: string | null;
+  onSelect: (id: string) => void; onCreated: (id: string) => void;
+}) {
+  const [composing, setComposing] = useState(false);
   return (
-    <div className="flex-1 flex items-center justify-center px-8 text-center text-[13px] text-text-3 leading-relaxed">
-      <div className="max-w-[420px]">
-        Pick a goal, or start one on the left.
-        <div className="mt-3 text-[12px]">
-          {accepting.length
-            ? `Devices taking tasks: ${accepting.map((e) => e.device_name || e.id).join(", ")}.`
-            : "No device takes tasks yet: restart each device's engine after updating it."}
+    <>
+      <div className="px-3 py-2.5 border-b border-panel-border-soft flex-none">
+        <div className="text-[11px] font-bold uppercase tracking-widest text-text-3">Goals</div>
+      </div>
+      <div className="flex-1 min-h-0 overflow-y-auto p-2">
+        {!loaded && <div className="text-[13px] text-text-3 text-center py-10">Loading…</div>}
+        {loaded && !goals.length && (
+          <div className="text-[13px] text-text-3 text-center py-10 leading-relaxed px-4">
+            No goals yet.
+            <div className="mt-1 text-text-2">Tap <b>New goal</b> to describe something you want done.</div>
+          </div>
+        )}
+        {goals.map((g) => <GoalRow key={g.id} goal={g} selected={g.id === selectedId} onClick={() => onSelect(g.id)} />)}
+      </div>
+      <div className="p-3 border-t border-panel-border-soft flex-none">
+        <button
+          onClick={() => setComposing(true)}
+          className="w-full flex items-center justify-center gap-2 py-3 rounded-xl bg-accent-soft border border-accent-soft-border text-[13.5px] font-semibold text-accent-2 hover:bg-accent/20 transition-colors active:scale-[0.98]"
+        >
+          <PlusIcon className="w-4 h-4" />
+          New goal
+        </button>
+      </div>
+      <NewGoalSheet
+        open={composing}
+        onClose={() => setComposing(false)}
+        onCreated={(id) => { setComposing(false); onCreated(id); }}
+      />
+    </>
+  );
+}
+
+function GoalRow({ goal, selected, onClick }: { goal: Goal; selected: boolean; onClick: () => void }) {
+  const kind = goal.status === "active" ? "active" : goal.status;
+  return (
+    <button
+      onClick={onClick}
+      className={`w-full text-left rounded-xl px-3 py-3 mb-0.5 flex items-start gap-3 transition-colors ${selected ? "bg-active" : "hover:bg-hover active:bg-active"}`}
+    >
+      <Dot status={kind} />
+      <div className="flex-1 min-w-0 -mt-px">
+        <div className="text-[13.5px] text-text-1 line-clamp-2 leading-snug">{goal.title}</div>
+        <div className={`text-[11px] mt-1 ${TEXT_CLASS[kind]}`}>
+          {goal.status}
+          {goal.work && <span className="text-accent-2/70 ml-2">· work</span>}
+          <span className="text-text-3 ml-2">· {timeAgo(goal.updated_at)}</span>
         </div>
       </div>
-    </div>
+      <ChevronRightIcon className="w-3.5 h-3.5 text-text-3 flex-none mt-1" />
+    </button>
   );
 }
 
-function NewGoal({ onCreated }: { onCreated: (id: string) => void }) {
+// ---- New goal sheet ----
+
+function NewGoalSheet({ open, onClose, onCreated }: {
+  open: boolean; onClose: () => void; onCreated: (id: string) => void;
+}) {
   const [text, setText] = useState("");
   const [work, setWork] = useState(false);
   const [busy, setBusy] = useState(false);
+
   async function submit() {
     const title = text.trim();
     if (!title || busy) return;
     setBusy(true);
     const id = await createGoal(title, work);
     setBusy(false);
-    if (id) {
-      setText("");
-      setWork(false);
-      onCreated(id);
-    }
+    if (id) { setText(""); setWork(false); onCreated(id); }
   }
+
   return (
-    <div className="p-3">
-      <div className="bg-panel-strong border border-panel-border rounded-xl p-2">
+    <Sheet open={open} onClose={onClose} title="New goal">
+      <div className="space-y-4">
         <textarea
-          rows={3}
+          rows={5}
+          autoFocus
           value={text}
           onChange={(e) => setText(e.target.value)}
-          onKeyDown={(e) => {
-            if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) void submit();
-          }}
-          placeholder="New goal, e.g. “Add a dark-mode toggle to agent-webapp-next, review it, open a PR”"
-          className="w-full resize-none bg-transparent outline-none text-[13px] text-text-1 placeholder:text-text-3"
+          onKeyDown={(e) => { if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) void submit(); }}
+          placeholder={'Describe what you want done — e.g. "Add a dark-mode toggle, get it reviewed, then open a PR."'}
+          className="w-full resize-none bg-black/22 border border-panel-border-soft rounded-xl p-3 text-[14px] text-text-1 outline-none focus:border-accent-soft-border placeholder:text-text-3 leading-relaxed"
         />
-        <div className="flex items-center gap-2">
-          <label className="flex items-center gap-1.5 text-[11px] text-text-2 cursor-pointer" title="Work goals use Claude Haiku and only run on devices tagged “work”.">
-            <input type="checkbox" checked={work} onChange={(e) => setWork(e.target.checked)} className="accent-[var(--color-accent)]" />
-            Work goal
-          </label>
-          <div className="flex-1" />
-          <button
-            onClick={() => void submit()}
-            disabled={!text.trim() || busy}
-            className="flex items-center gap-1 rounded-lg px-2.5 py-1 text-[12px] font-semibold text-white bg-gradient-to-br from-accent-2 to-accent-strong disabled:opacity-40"
-          >
-            <PlusIcon className="w-3.5 h-3.5" />
-            {busy ? "Starting…" : "Start"}
-          </button>
-        </div>
+        <label className="flex items-start gap-3 cursor-pointer">
+          <input
+            type="checkbox"
+            checked={work}
+            onChange={(e) => setWork(e.target.checked)}
+            className="w-4 h-4 mt-0.5 accent-[var(--color-accent)] flex-none"
+          />
+          <div>
+            <div className="text-[13px] text-text-1 font-medium">Work goal</div>
+            <div className="text-[11.5px] text-text-3 mt-0.5">Uses Claude Haiku · runs only on devices tagged "work"</div>
+          </div>
+        </label>
+        <button
+          onClick={() => void submit()}
+          disabled={!text.trim() || busy}
+          className="w-full py-3.5 rounded-xl font-semibold text-[14px] text-white bg-gradient-to-br from-accent-2 to-accent-strong disabled:opacity-40 active:scale-[0.98] transition-transform"
+        >
+          {busy ? "Starting…" : "Start goal"}
+        </button>
       </div>
-    </div>
+    </Sheet>
   );
 }
 
+// ---- Goal detail ----
+
 function GoalDetail({ goal, onBack }: { goal: Goal; onBack: () => void }) {
   const messages = useGoalsStore((s) => s.messages[goal.id]);
-  const tasks = useGoalsStore((s) => s.tasks[goal.id]);
+  const tasks = useGoalsStore((s) => s.tasks[goal.id]) ?? [];
   const [text, setText] = useState("");
+  const [menuOpen, setMenuOpen] = useState(false);
+  const [activeTask, setActiveTask] = useState<Task | null>(null);
   const logRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -162,7 +221,9 @@ function GoalDetail({ goal, onBack }: { goal: Goal; onBack: () => void }) {
 
   const toolResults = useMemo(() => {
     const m = new Map<string, string>();
-    for (const msg of messages ?? []) if (msg.role === "tool" && msg.content.tool_call_id) m.set(msg.content.tool_call_id, msg.content.text ?? "");
+    for (const msg of messages ?? []) {
+      if (msg.role === "tool" && msg.content.tool_call_id) m.set(msg.content.tool_call_id, msg.content.text ?? "");
+    }
     return m;
   }, [messages]);
 
@@ -173,211 +234,332 @@ function GoalDetail({ goal, onBack }: { goal: Goal; onBack: () => void }) {
     void postMessage(goal, t);
   }
 
-  const busy = (tasks ?? []).filter((t) => t.status === "running" || t.status === "queued").length;
+  const activeTasks = tasks.filter((t) => t.status === "running" || t.status === "queued");
+  const needsApproval = tasks.some((t) => t.needs_approval && t.status === "running");
+  const shortTitle = goal.title.length > 45 ? goal.title.slice(0, 43) + "…" : goal.title;
+
   return (
     <>
-      <div className="px-4 pt-1 pb-3 border-b border-panel-border-soft flex-none">
-        <div className="flex items-start gap-2">
-          <button onClick={onBack} className="md:hidden mt-0.5 text-text-2 hover:text-text-1 rotate-180" aria-label="Back to goals">
-            <ChevronRightIcon className="w-4 h-4" />
-          </button>
-          <div className="flex-1 min-w-0">
-            <div className="text-[14.5px] text-text-1 leading-snug">{goal.title}</div>
-            <div className="flex items-center gap-1.5 mt-1.5 text-[11px] text-text-3 flex-wrap">
-              <Pill kind={goal.status}>{goal.status}</Pill>
-              {goal.work && <Pill kind="approval">work · Claude Haiku · work devices only</Pill>}
-              <span>{busy ? `${busy} task${busy > 1 ? "s" : ""} in progress` : `${tasks?.length ?? 0} tasks`}</span>
-              <span>· planning cost ${Number(goal.cost_usd).toFixed(4)}</span>
-            </div>
-          </div>
-          <div className="flex gap-1.5 flex-none">
-            {goal.status === "active" ? (
-              <>
-                <SmallButton onClick={() => void setGoalStatus(goal, "done")}>Mark done</SmallButton>
-                <SmallButton danger onClick={() => void setGoalStatus(goal, "cancelled")}>Cancel goal</SmallButton>
-              </>
-            ) : (
-              <SmallButton onClick={() => void setGoalStatus(goal, "active")}>Reopen</SmallButton>
+      {/* Header */}
+      <div className="flex-none px-3 py-2.5 border-b border-panel-border-soft flex items-center gap-2">
+        <button
+          onClick={onBack}
+          className="md:hidden flex-none w-8 h-8 flex items-center justify-center text-text-2 hover:text-text-1 -ml-1.5 rounded-lg"
+          aria-label="Back"
+        >
+          <ChevronRightIcon className="w-4 h-4 rotate-180" />
+        </button>
+        <div className="flex-1 min-w-0">
+          <div className="text-[13.5px] font-medium text-text-1 truncate leading-snug">{shortTitle}</div>
+          <div className="flex items-center gap-2 mt-0.5 text-[11px]">
+            <Dot status={goal.status === "active" ? "active" : goal.status} />
+            <span className={TEXT_CLASS[goal.status]}>{goal.status}</span>
+            {goal.work && <span className="text-accent-2/70">work</span>}
+            {activeTasks.length > 0 && !needsApproval && (
+              <span className="text-text-3">{activeTasks.length} running</span>
+            )}
+            {needsApproval && (
+              <span className="text-warn font-semibold">needs your approval</span>
+            )}
+            {Number(goal.cost_usd) > 0 && (
+              <span className="text-text-3">${Number(goal.cost_usd).toFixed(4)}</span>
             )}
           </div>
         </div>
-        {!!tasks?.length && (
-          <div className="mt-3 flex gap-2 overflow-x-auto pb-1">
-            {tasks.map((t) => (
-              <TaskCard key={t.id} task={t} tasks={tasks} />
-            ))}
-          </div>
-        )}
-      </div>
-      <div ref={logRef} className="flex-1 min-h-0 overflow-y-auto px-4 py-4">
-        <div className="max-w-[720px] mx-auto">
-          {!messages && <div className="text-[12.5px] text-text-3">Loading…</div>}
-          {messages?.map((m) => <ThreadItem key={m.id} msg={m} toolResults={toolResults} />)}
+
+        {/* ··· menu */}
+        <div className="relative flex-none">
+          <button
+            onClick={() => setMenuOpen(!menuOpen)}
+            className="w-9 h-9 flex items-center justify-center text-text-2 hover:text-text-1 hover:bg-hover rounded-xl"
+            aria-label="More actions"
+          >
+            <span className="text-[18px] leading-none tracking-tighter">···</span>
+          </button>
+          {menuOpen && (
+            <>
+              <div className="fixed inset-0 z-20" onClick={() => setMenuOpen(false)} />
+              <div className="absolute right-0 top-10 z-30 min-w-[160px] bg-sheet-bg border border-panel-border rounded-2xl shadow-2xl overflow-hidden">
+                {goal.status === "active" ? (
+                  <>
+                    <button
+                      onClick={() => { void setGoalStatus(goal, "done"); setMenuOpen(false); }}
+                      className="w-full text-left px-4 py-3 text-[13.5px] text-success hover:bg-hover"
+                    >
+                      Mark done
+                    </button>
+                    <div className="mx-3 border-t border-panel-border-soft" />
+                    <button
+                      onClick={() => { void setGoalStatus(goal, "cancelled"); setMenuOpen(false); }}
+                      className="w-full text-left px-4 py-3 text-[13.5px] text-danger hover:bg-hover"
+                    >
+                      Cancel goal
+                    </button>
+                  </>
+                ) : (
+                  <button
+                    onClick={() => { void setGoalStatus(goal, "active"); setMenuOpen(false); }}
+                    className="w-full text-left px-4 py-3 text-[13.5px] text-text-1 hover:bg-hover"
+                  >
+                    Reopen
+                  </button>
+                )}
+              </div>
+            </>
+          )}
         </div>
       </div>
-      <div className="px-4 pb-4 pt-2 flex-none">
-        <div className="max-w-[720px] mx-auto bg-panel-strong border border-panel-border rounded-2xl p-2 flex items-end gap-2">
+
+      {/* Task pills strip */}
+      {tasks.length > 0 && (
+        <div className="flex-none border-b border-panel-border-soft px-3 py-2 flex gap-1.5 overflow-x-auto">
+          {tasks.map((t) => {
+            const k = taskKind(t);
+            return (
+              <button
+                key={t.id}
+                onClick={() => setActiveTask(t)}
+                className={`flex-none flex items-center gap-1.5 px-2.5 py-1.5 rounded-full border text-[11.5px] font-medium transition-colors hover:opacity-80 active:scale-95 ${PILL_CLASS[k] ?? PILL_CLASS.queued}`}
+              >
+                <Dot status={k} />
+                <span className="font-bold">{t.ref}</span>
+                <span className="opacity-60 text-[10px]">{t.task_type}</span>
+              </button>
+            );
+          })}
+        </div>
+      )}
+
+      {/* Thread */}
+      <div ref={logRef} className="flex-1 min-h-0 overflow-y-auto px-4 py-4">
+        {!messages && <div className="text-[12.5px] text-text-3 text-center py-8">Loading…</div>}
+        {messages?.map((m) => (
+          <ThreadItem key={m.id} msg={m} toolResults={toolResults} />
+        ))}
+      </div>
+
+      {/* Reply bar */}
+      <div className="flex-none px-3 pt-2 pb-3 border-t border-panel-border-soft">
+        <div className="flex items-end gap-2 bg-panel-strong border border-panel-border rounded-2xl px-3 py-2">
           <textarea
             rows={1}
             value={text}
             onChange={(e) => setText(e.target.value)}
-            onKeyDown={(e) => {
-              if (e.key === "Enter" && !e.shiftKey) {
-                e.preventDefault();
-                send();
-              }
-            }}
+            onKeyDown={(e) => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); send(); } }}
             placeholder={goal.status === "active" ? "Reply to the coordinator…" : "Write to reopen this goal…"}
-            className="flex-1 resize-none bg-transparent outline-none text-[14.5px] text-text-1 py-1.5 px-1.5 max-h-40 placeholder:text-text-3"
+            className="flex-1 resize-none bg-transparent outline-none text-[14.5px] text-text-1 py-1 max-h-32 placeholder:text-text-3"
           />
           <button
             onClick={send}
             disabled={!text.trim()}
             aria-label="Send"
-            className="w-[34px] h-[34px] rounded-full flex-none flex items-center justify-center text-white bg-gradient-to-br from-accent-2 to-accent-strong disabled:bg-none disabled:bg-white/8 disabled:text-text-3"
+            className="w-9 h-9 rounded-full flex-none flex items-center justify-center text-white bg-gradient-to-br from-accent-2 to-accent-strong disabled:opacity-30 active:scale-90 transition-transform"
           >
-            <SendIcon className="w-[15px] h-[15px]" />
+            <SendIcon className="w-4 h-4" />
           </button>
         </div>
       </div>
+
+      <TaskSheet task={activeTask} tasks={tasks} onClose={() => setActiveTask(null)} />
     </>
   );
 }
 
-function SmallButton({ children, onClick, danger }: { children: React.ReactNode; onClick: () => void; danger?: boolean }) {
-  return (
-    <button
-      onClick={onClick}
-      className={`border rounded-md px-2 py-0.5 text-[11px] transition-colors ${danger ? "border-danger/30 text-danger hover:border-danger/60" : "border-panel-border-soft text-text-2 hover:text-text-1 hover:bg-active"}`}
-    >
-      {children}
-    </button>
-  );
-}
+// ---- Task detail sheet ----
 
-function TaskCard({ task, tasks }: { task: Task; tasks: Task[] }) {
+function TaskSheet({ task, tasks, onClose }: { task: Task | null; tasks: Task[]; onClose: () => void }) {
   const name = useDeviceName();
   const setView = useUiStore((s) => s.setView);
-  const [open, setOpen] = useState(false);
-  const kind = task.needs_approval && task.status === "running" ? "approval" : task.status;
-  const label = kind === "approval" ? "needs your approval" : task.status;
+  if (!task) return null;
+  const k = taskKind(task);
   const deps = task.depends_on.map((d) => tasks.find((t) => t.id === d)?.ref ?? "?");
   const where = task.engine_id ?? task.target_engine;
   const canOpen = !!(task.session_id && task.engine_id && (task.worktree || task.project_path));
 
   return (
-    <div className={`flex-none w-[250px] rounded-xl border bg-black/20 p-2.5 text-[11.5px] ${kind === "approval" ? "border-warn/50" : "border-panel-border-soft"}`}>
-      <div className="flex items-center gap-1.5">
-        <span className="font-semibold text-text-1">{task.ref}</span>
-        <span className="text-text-2">{task.task_type}</span>
-        <div className="flex-1" />
-        <Pill kind={kind}>{label}</Pill>
-      </div>
-      <div className="mt-1 text-text-3 truncate">
-        {task.repo} · {where ? name(where) : task.required_capability ? `any with ${task.required_capability}` : "any device"}
-        {deps.length ? ` · after ${deps.join(", ")}` : ""}
-      </div>
-      <button onClick={() => setOpen(!open)} className="mt-1.5 text-left text-text-2 line-clamp-2 hover:text-text-1">
-        {task.instructions}
-      </button>
-      {open && (
-        <div className="mt-1.5 space-y-1.5 text-text-2 whitespace-pre-wrap break-words max-h-48 overflow-y-auto">
-          <div><span className="text-text-3">Instructions:</span> {task.instructions}</div>
-          <div><span className="text-text-3">Done when:</span> {task.acceptance}</div>
-          {(task.result || task.error) && <div><span className="text-text-3">Report:</span> {task.result ?? task.error}</div>}
+    <Sheet open onClose={onClose} title={`${task.ref} · ${task.task_type}`}>
+      <div className="space-y-5">
+        {/* Status row */}
+        <div className="flex items-center gap-2 flex-wrap">
+          <span className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-full border text-[12px] font-semibold ${PILL_CLASS[k] ?? PILL_CLASS.queued}`}>
+            <Dot status={k} />
+            {k === "approval" ? "needs your approval" : task.status}
+          </span>
+          <span className="text-[12.5px] text-text-3">{task.repo}</span>
+          {where && <span className="text-[12.5px] text-text-3">on {name(where)}</span>}
+          {deps.length > 0 && <span className="text-[12.5px] text-text-3">after {deps.join(", ")}</span>}
         </div>
-      )}
-      {task.branch && <div className="mt-1 text-text-3 truncate">branch {task.branch}{task.pushed ? " (pushed)" : ""}</div>}
-      {!open && (task.result || task.error) && <div className="mt-1 text-text-3 line-clamp-2">{task.result ?? task.error}</div>}
-      <div className="mt-2 flex gap-1.5">
-        {canOpen && (
-          <SmallButton
-            onClick={() => {
-              switchProject((task.worktree || task.project_path)!, { sessionId: task.session_id!, engineId: task.engine_id!, title: `${task.ref} ${task.task_type}` });
-              setView("chat");
-            }}
-          >
-            Open session
-          </SmallButton>
+
+        {/* Instructions */}
+        <div>
+          <Label>Instructions</Label>
+          <div className="text-[13.5px] text-text-2 whitespace-pre-wrap leading-relaxed">{task.instructions}</div>
+        </div>
+
+        {/* Done when */}
+        <div>
+          <Label>Done when</Label>
+          <div className="text-[13.5px] text-text-2 leading-relaxed">{task.acceptance}</div>
+        </div>
+
+        {/* Branch */}
+        {task.branch && (
+          <div className="text-[12.5px] text-text-3">
+            Branch: <code className="text-accent-2 font-mono">{task.branch}</code>
+            <span className="ml-2">{task.pushed ? "(pushed to origin)" : "(local only)"}</span>
+          </div>
         )}
-        {(task.status === "queued" || task.status === "running") && (
-          <SmallButton danger onClick={() => void cancelTask(task)}>
-            Cancel
-          </SmallButton>
+
+        {/* Result */}
+        {(task.result || task.error) && (
+          <div>
+            <Label>{task.error ? "Error" : "Result"}</Label>
+            <div className={`text-[13px] whitespace-pre-wrap leading-relaxed ${task.error ? "text-danger" : "text-text-1"}`}>
+              {task.result ?? task.error}
+            </div>
+          </div>
         )}
+
+        {/* Actions */}
+        <div className="flex gap-2 pt-1">
+          {canOpen && (
+            <button
+              onClick={() => {
+                switchProject((task.worktree || task.project_path)!, {
+                  sessionId: task.session_id!,
+                  engineId: task.engine_id!,
+                  title: `${task.ref} ${task.task_type}`,
+                });
+                setView("chat");
+                onClose();
+              }}
+              className="flex-1 py-3 rounded-xl border border-panel-border text-[13.5px] font-medium text-text-1 hover:bg-hover transition-colors"
+            >
+              Open session
+            </button>
+          )}
+          {(task.status === "queued" || task.status === "running") && (
+            <button
+              onClick={() => { void cancelTask(task); onClose(); }}
+              className="flex-1 py-3 rounded-xl border border-danger/30 text-[13.5px] font-medium text-danger hover:bg-danger-soft transition-colors"
+            >
+              Cancel
+            </button>
+          )}
+        </div>
       </div>
-    </div>
+    </Sheet>
   );
 }
 
-function argsOf(call: ToolCall): Record<string, unknown> {
-  try {
-    return JSON.parse(call.function.arguments || "{}");
-  } catch {
-    return {};
-  }
+function Label({ children }: { children: React.ReactNode }) {
+  return <div className="text-[10.5px] font-bold uppercase tracking-wider text-text-3 mb-1.5">{children}</div>;
 }
+
+// ---- Thread items ----
 
 function ThreadItem({ msg, toolResults }: { msg: GoalMessage; toolResults: Map<string, string> }) {
   const name = useDeviceName();
   if (msg.role === "tool") return null;
+
   if (msg.role === "user") {
     return (
       <div className="flex justify-end mb-4">
-        <div className="max-w-[82%] whitespace-pre-wrap text-[14px] text-text-1 px-3.5 py-2.5 rounded-[16px_16px_4px_16px] bg-gradient-to-b from-accent/32 to-accent-strong/22 border border-accent/28">
+        <div className="max-w-[85%] whitespace-pre-wrap text-[14px] text-text-1 px-3.5 py-2.5 rounded-[16px_16px_4px_16px] bg-gradient-to-b from-accent/32 to-accent-strong/22 border border-accent/28 leading-relaxed">
           {msg.content.text}
         </div>
       </div>
     );
   }
+
   if (msg.role === "event") {
     const text = msg.content.text ?? "";
     const failed = / FAILED /.test(text);
+    const done = / DONE /.test(text);
     return (
-      <div className={`mb-3 text-[12px] font-mono whitespace-pre-wrap break-words rounded-lg border px-2.5 py-1.5 ${failed ? "border-danger/30 text-danger/90" : "border-success/25 text-success/90"}`}>
-        {text.replace(/^\[event\]\s*/, "")}
+      <div className={`mb-3 flex items-start gap-2 text-[12px] rounded-xl border px-3 py-2.5 leading-relaxed ${
+        failed ? "border-danger/20 bg-danger/5 text-danger/80" :
+        done   ? "border-success/20 bg-success/5 text-success/80" :
+                 "border-panel-border-soft text-text-3"
+      }`}>
+        <span className={`w-1.5 h-1.5 rounded-full mt-1.5 flex-none ${failed ? "bg-danger" : done ? "bg-success" : "bg-text-3"}`} />
+        <span className="whitespace-pre-wrap break-words">{text.replace(/^\[event\]\s*/, "")}</span>
       </div>
     );
   }
+
+  // assistant
   const calls = msg.content.tool_calls ?? [];
   return (
     <div className="mb-4">
       {calls.map((c) => {
-        const a = argsOf(c);
+        let a: Record<string, unknown> = {};
+        try { a = JSON.parse(c.function.arguments || "{}"); } catch {}
         const out = toolResults.get(c.id) ?? "";
         const failed = out.startsWith("error:");
         switch (c.function.name) {
           case "ask_user":
             return (
-              <div key={c.id} className="mb-2 rounded-xl border border-warn/40 bg-warn-soft px-3 py-2.5 text-[13.5px] text-text-1 whitespace-pre-wrap">
-                <div className="text-[10.5px] font-bold uppercase tracking-wider text-warn mb-1">Coordinator asks</div>
-                {String(a.message ?? "")}
+              <div key={c.id} className="mb-3 rounded-2xl border border-warn/40 bg-warn-soft px-4 py-3.5">
+                <div className="text-[10px] font-bold uppercase tracking-widest text-warn mb-2">Coordinator asks</div>
+                <div className="text-[14px] text-text-1 whitespace-pre-wrap leading-relaxed">{String(a.message ?? "")}</div>
               </div>
             );
           case "complete_goal":
             return (
-              <div key={c.id} className="mb-2 rounded-xl border border-success/40 bg-success-soft px-3 py-2.5 text-[13.5px] text-text-1 whitespace-pre-wrap">
-                <div className="text-[10.5px] font-bold uppercase tracking-wider text-success mb-1">Goal complete</div>
-                {String(a.summary ?? "")}
+              <div key={c.id} className="mb-3 rounded-2xl border border-success/40 bg-success-soft px-4 py-3.5">
+                <div className="text-[10px] font-bold uppercase tracking-widest text-success mb-2">Goal complete</div>
+                <div className="text-[14px] text-text-1 whitespace-pre-wrap leading-relaxed">{String(a.summary ?? "")}</div>
               </div>
             );
           case "delegate_task":
             return (
-              <div key={c.id} className={`mb-1.5 text-[12px] ${failed ? "text-danger" : "text-text-2"}`}>
-                {failed ? "Couldn't queue" : `Queued ${out.replace(/^queued as /, "")}`}: {String(a.task_type ?? "")} in {String(a.repo ?? "")} →{" "}
-                {a.target_device ? name(String(a.target_device)) : a.required_capability ? `any with ${a.required_capability}` : "any device"}
-                {failed && <span className="text-text-3"> ({out.replace(/^error:\s*/, "")})</span>}
+              <div key={c.id} className={`mb-1.5 flex items-center gap-2 text-[12px] ${failed ? "text-danger" : "text-text-3"}`}>
+                <span className={`w-1.5 h-1.5 rounded-full flex-none ${failed ? "bg-danger" : "bg-accent-2/60"}`} />
+                {failed
+                  ? `Couldn't queue: ${out.replace(/^error:\s*/, "")}`
+                  : <>Queued {out.replace(/^queued as /, "")} &middot; {String(a.task_type ?? "")} in {String(a.repo ?? "")} &rarr; {a.target_device ? name(String(a.target_device)) : "any device"}</>}
               </div>
             );
           case "cancel_task":
-            return <div key={c.id} className="mb-1.5 text-[12px] text-text-2">{failed ? out : `Cancelled ${String(a.ref ?? "")}`}</div>;
+            return (
+              <div key={c.id} className="mb-1.5 flex items-center gap-2 text-[12px] text-text-3">
+                <span className="w-1.5 h-1.5 rounded-full flex-none bg-danger/60" />
+                {failed ? out : `Cancelled ${String(a.ref ?? "")}`}
+              </div>
+            );
           case "remember":
-            return <div key={c.id} className="mb-1.5 text-[12px] text-text-3">Remembered: {String(a.fact ?? "")}</div>;
+            return (
+              <div key={c.id} className="mb-1.5 text-[11.5px] text-text-3 italic">
+                Remembered: {String(a.fact ?? "")}
+              </div>
+            );
           default:
             return null;
         }
       })}
-      {msg.content.text && <div className="text-[14px] text-text-1 prose-chat" dangerouslySetInnerHTML={{ __html: renderMarkdown(msg.content.text) }} />}
+      {msg.content.text && (
+        <div className="text-[14px] text-text-1 leading-relaxed prose-chat" dangerouslySetInnerHTML={{ __html: renderMarkdown(msg.content.text) }} />
+      )}
+    </div>
+  );
+}
+
+// ---- Empty state ----
+
+function EmptyState() {
+  const engines = useEngineStore((s) => s.engines);
+  const accepting = Object.values(engines).filter((e) => e.tasks_enabled);
+  return (
+    <div className="flex-1 flex items-center justify-center px-8 text-center">
+      <div>
+        <div className="text-[14px] text-text-2 font-medium mb-2">Select a goal</div>
+        <div className="text-[12.5px] text-text-3 leading-relaxed max-w-[280px]">
+          {accepting.length
+            ? `${accepting.map((e) => e.device_name || e.id).join(" & ")} ${accepting.length === 1 ? "is" : "are"} taking tasks.`
+            : "No device is taking tasks yet. Restart each device's engine to enable task support."}
+        </div>
+      </div>
     </div>
   );
 }
