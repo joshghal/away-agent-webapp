@@ -100,6 +100,9 @@ export type EngineRow = {
   mcp: McpListResponse | null;
   mcp_checked_at: string | null;
   allow_bypass?: boolean;
+  capabilities?: string[];
+  tags?: string[];
+  tasks_enabled?: boolean;
   last_seen_at: string;
   fingerprint: string | null;
   device_name: string | null;

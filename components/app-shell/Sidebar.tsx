@@ -1,6 +1,6 @@
 "use client";
 import { useEffect } from "react";
-import { CloseIcon, PlusIcon, SearchIcon } from "@/components/icons/icons";
+import { CloseIcon, PlusIcon, SearchIcon, ChatIcon } from "@/components/icons/icons";
 import Image from "next/image";
 import { SessionTree } from "./SessionTree";
 import { useSidebarStore } from "@/store/sidebarStore";
@@ -12,7 +12,7 @@ import { useEngineStore } from "@/store/engineStore";
 
 
 export function Sidebar() {
-  const { drawerOpen, setDrawerOpen, openSheet } = useUiStore();
+  const { drawerOpen, setDrawerOpen, openSheet, view, setView } = useUiStore();
   const { searchQuery, setSearchQuery } = useSidebarStore();
   const onlineEngines = useEngineStore((s) => s.online);
 
@@ -63,7 +63,21 @@ export function Sidebar() {
 
         <div className="flex-1 min-h-0 overflow-y-auto p-3">
           <button
-            onClick={() => openSheet("newSession")}
+            onClick={() => setView(view === "coordinator" ? "chat" : "coordinator")}
+            className={`w-full flex items-center gap-2.5 py-2.5 px-3 mt-1 rounded-xl border text-[13.5px] font-medium transition-colors ${
+              view === "coordinator"
+                ? "bg-accent-soft border-accent-soft-border text-text-1"
+                : "bg-panel-strong border-panel-border text-text-1 hover:bg-[rgba(40,40,50,0.9)] hover:border-white/14"
+            }`}
+          >
+            <ChatIcon className="w-4 h-4 text-accent-2" />
+            {view === "coordinator" ? "Back to sessions" : "Coordinator"}
+          </button>
+          <button
+            onClick={() => {
+              setView("chat");
+              openSheet("newSession");
+            }}
             className="w-full flex items-center gap-2.5 py-2.5 px-3 my-1 mb-3.5 rounded-xl bg-panel-strong border border-panel-border text-text-1 text-[13.5px] font-medium hover:bg-[rgba(40,40,50,0.9)] hover:border-white/14 transition-colors"
           >
             <PlusIcon className="w-4 h-4 text-accent-2" />

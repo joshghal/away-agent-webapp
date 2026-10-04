@@ -238,7 +238,7 @@ supabase/migrations/                      database schema and security rules
 ### Files that stay on each device (never committed)
 | File / place | Contains |
 |---|---|
-| `.env.engine` | `SUPABASE_URL`, `SUPABASE_PUBLISHABLE_KEY`, `ENGINE_ID`, `ENGINE_EMAIL` (public values; on Linux also `ENGINE_PASSWORD`). Optional: `ALLOW_BYPASS_PERMISSIONS=1` lets the website start sessions in "Bypass permissions" mode on this device; leave it out to keep that off (restart the engine after changing it). |
+| `.env.engine` | `SUPABASE_URL`, `SUPABASE_PUBLISHABLE_KEY`, `ENGINE_ID`, `ENGINE_EMAIL` (public values; on Linux also `ENGINE_PASSWORD`). Optional: `ALLOW_BYPASS_PERMISSIONS=1` lets the website start sessions in "Bypass permissions" mode on this device; leave it out to keep that off. Coordinator: `TASKS_ENABLED=0` stops this device taking tasks; `ENGINE_TAGS=personal,work` (default `personal`; only `work` devices get work goals); `ENGINE_CAPABILITIES=gpu,…` adds to the auto-detected ones (`ios_sim`, `android_emulator`, `playwright`, `github_cli`); `TASK_SLOTS=1` tasks at once; `TASK_GIT_PUSH=1` pushes finished task branches to `origin` so other devices can build on them. Restart the engine after changing any of these. |
 | macOS Keychain `away-agent-engine / <id>` | the engine's password |
 | `~/Library/LaunchAgents/com.awayagent.engine.plist` | the background service |
 | `~/.claude/` | Claude Code's own login and transcripts (the originals) |
@@ -253,3 +253,13 @@ supabase/migrations/                      database schema and security rules
 - The website sends a strict Content Security Policy (per-request nonce): only its own scripts run, and it can only connect to Supabase.
 - "Bypass permissions" is refused by an engine unless that device's `.env.engine` sets `ALLOW_BYPASS_PERMISSIONS=1`; the website alone can't turn it on.
 - Access tokens expire after 15 minutes (refreshed silently); minimum password length is 12.
+- Coordinator tasks: the planner (an Edge Function) can only queue tasks; the database itself enforces no bypass mode, work goals only on devices tagged `work`, and real dependencies. Engines claim and report only through security-definer functions for their own engine. Each task runs in its own git worktree and branch under `~/.awayagent/worktrees/`, never in your working folder, and shell commands still ask you for approval in the app. Task results are treated as data, never as instructions.
+
+## 8. Coordinator (multi-device goals)
+
+Open **Coordinator** in the sidebar and describe a goal. The `coordinator` Edge Function plans it, queues tasks for your devices (by repo, capability, load and online state), reacts when they finish or fail, and asks you when it needs a decision. Each device claims tasks it can run and runs them as ordinary AwayAgent sessions, so they appear in the sidebar and you approve tools there ("Open session" on a task card jumps to it).
+
+- **Models** (OpenRouter, one key): DeepSeek V4.1 Flash with thinking off by default; GLM 5.3 when the default keeps failing; Claude Haiku 4.5 for goals marked **Work goal**. Every request sets `data_collection: deny`. Chosen from a measured evaluation (routing, prompt injection, summarizing, end-to-end runs); planning typically costs about $0.01–0.03 per goal. Override with the function secrets `COORDINATOR_MODEL`, `COORDINATOR_ESCALATION_MODEL`, `COORDINATOR_WORK_MODEL`.
+- **Setup (once):** `supabase secrets set OPENROUTER_API_KEY=<key> --project-ref <ref>` (give the key a spending limit on OpenRouter). Deploy changes with `supabase functions deploy coordinator --use-api`.
+- **Repos:** a task names a repo folder (e.g. `agent-webapp-next`); a device can take it if it has used a folder with that name in Claude Code. Dependent tasks build on the previous task's branch; without `TASK_GIT_PUSH=1` they stay on the same device.
+- **Worktrees** keep the branch's history; remove old ones with `git worktree remove ~/.awayagent/worktrees/<name>` (branches stay).

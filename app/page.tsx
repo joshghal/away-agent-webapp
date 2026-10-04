@@ -8,6 +8,8 @@ import { ChatArea } from "@/components/chat/ChatArea";
 import { ConfigSheet } from "@/components/sheets/ConfigSheet";
 import { DeviceSheet } from "@/components/sheets/DeviceSheet";
 import { NewSessionSheet } from "@/components/sheets/NewSessionSheet";
+import { CoordinatorView } from "@/components/coordinator/CoordinatorView";
+import { useUiStore } from "@/store/uiStore";
 import { LoginGate } from "@/components/auth/LoginGate";
 import { useSessionStore } from "@/store/sessionStore";
 import { switchProject } from "@/lib/client/switchProject";
@@ -52,12 +54,22 @@ function App() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  const view = useUiStore((s) => s.view);
   return (
     <AppShell>
-      <TabStrip />
-      <Topbar />
-      <SessionInfoChips />
-      <ChatArea />
+      {view === "coordinator" ? (
+        <>
+          <Topbar />
+          <CoordinatorView />
+        </>
+      ) : (
+        <>
+          <TabStrip />
+          <Topbar />
+          <SessionInfoChips />
+          <ChatArea />
+        </>
+      )}
       <ConfigSheet />
       <DeviceSheet />
       <NewSessionSheet />

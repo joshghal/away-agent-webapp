@@ -5,6 +5,7 @@ import { useSidebarStore } from "@/store/sidebarStore";
 import { useTabStatusStore } from "@/store/tabStatusStore";
 import { sendInit, engineFor, loadHistoryInto } from "@/lib/client/hub";
 import { updateUrlForCurrent } from "@/lib/client/urlSync";
+import { useUiStore } from "@/store/uiStore";
 
 export function switchProject(
   path: string,
@@ -13,6 +14,7 @@ export function switchProject(
   if (!path) return;
   const { sessionId, forceNew, title } = opts;
   const resolvedSessionId = forceNew ? null : sessionId || null;
+  useUiStore.getState().setView("chat");
 
   // An explicit device (picked by you) wins over "the device this folder was on".
   useSessionStore.getState().setSession(path, resolvedSessionId, false, opts.engineId ?? engineFor(path, resolvedSessionId));

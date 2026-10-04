@@ -14,6 +14,8 @@ import { HOME, DEFAULT_PROJECT_DIR } from "../lib/server/env";
 import { createImageUploader, createMirror, jsonbSafe } from "./mirror";
 import { createOutbound, type Publish } from "./outbound";
 import { deviceInfo } from "./device";
+import { detectCapabilities, engineTags, TASKS_ENABLED, TASK_SLOTS, TASK_GIT_PUSH } from "./capabilities";
+import { createTaskRunner } from "./tasks";
 import type { ClientMessage, HubEnvelope, ServerMessage } from "../lib/shared/ws-protocol";
 
 const SCAN_INTERVAL_MS = 2 * 60 * 1000;
@@ -35,6 +37,13 @@ const supabase = createClient(SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY, {
 });
 const images = createImageUploader(supabase);
 const mirror = createMirror(supabase, ENGINE_ID, images);
+// Coordinator tasks: claimed here, run as ordinary sessions in isolated worktrees.
+const taskRunner = createTaskRunner({
+  supabase,
+  engineId: ENGINE_ID,
+  prepareHistory: (project, sessionId) => mirror.syncSession(project, sessionId),
+  canRun: () => TASKS_ENABLED && getAuthStatus().state === "ready",
+});
 
 // Realtime topics (see the engine_scoped_access migration):
 //   presence          who is online; this engine tracks itself here
@@ -325,6 +334,7 @@ async function shutdown(signal: string): Promise<void> {
   shuttingDown = true;
   console.log(`${signal} — stopping live sessions and leaving the hub…`);
   setTimeout(() => process.exit(1), 10_000).unref();
+  taskRunner.stopAll(); // reported as interrupted on the next start
   await Promise.all([...state.liveSessions.keys()].map((project) => killLive(project)));
   await statusWrites;
   await markAllSessionsIdle();
@@ -365,6 +375,11 @@ async function main(): Promise<void> {
       default_project: DEFAULT_PROJECT_DIR,
       version: VERSION,
       allow_bypass: bypassAllowed(),
+      capabilities: detectCapabilities(),
+      tags: engineTags(),
+      tasks_enabled: TASKS_ENABLED,
+      task_slots: TASK_SLOTS,
+      git_push: TASK_GIT_PUSH,
       last_seen_at: new Date().toISOString(),
       ...device,
     },
@@ -451,6 +466,7 @@ async function main(): Promise<void> {
     }
   }, 5 * 60 * 1000);
   refreshMcp(false).catch((e) => console.error("MCP check failed:", e.message));
+  if (TASKS_ENABLED) taskRunner.start();
   // Let the hub connection and any immediate reattach go first.
   setTimeout(() => void scanLoop(), 10_000);
 }

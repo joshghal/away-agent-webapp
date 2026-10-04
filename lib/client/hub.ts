@@ -470,7 +470,7 @@ export function startHub(): Promise<void> {
   enginesLoaded = Promise.resolve(
     supabase
       .from("engines")
-      .select("id, hostname, home_dir, default_project, claude_auth, mcp, mcp_checked_at, allow_bypass, last_seen_at, fingerprint, device_name, model, platform")
+      .select("id, hostname, home_dir, default_project, claude_auth, mcp, mcp_checked_at, allow_bypass, capabilities, tags, tasks_enabled, last_seen_at, fingerprint, device_name, model, platform")
       .then(({ data }) => {
         useEngineStore.getState().setEngines((data as EngineRow[]) || []);
         syncEngineDerivedStores();
