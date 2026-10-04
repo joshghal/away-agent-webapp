@@ -8,10 +8,13 @@ import { useChatStore } from "@/store/chatStore";
 import { useConnectionStore } from "@/store/connectionStore";
 import { useSessionStore } from "@/store/sessionStore";
 import { useTabsStore } from "@/store/tabsStore";
+import { useTargetEngine, cliMissing } from "@/lib/client/targetEngine";
 
 export const InputBar = forwardRef<HTMLDivElement>(function InputBar(_props, ref) {
   const [text, setText] = useState("");
   const status = useConnectionStore((s) => s.status);
+  const target = useTargetEngine();
+  const missingCli = cliMissing(target);
 
   function sendMessage() {
     const trimmed = text.trim();
@@ -35,6 +38,13 @@ export const InputBar = forwardRef<HTMLDivElement>(function InputBar(_props, ref
 
   return (
     <div ref={ref} className="input-ease px-5 pt-3 pb-4 flex-none">
+      {missingCli && (
+        <div role="alert" className="max-w-[740px] mx-auto mb-2 rounded-xl border border-warn/40 bg-warn/10 px-3 py-2 text-[12.5px] text-warn">
+          Claude Code CLI isn&apos;t installed on <b>{target?.device_name || target?.id}</b>, so chats there can&apos;t start.
+          On that device run <code>npm install -g @anthropic-ai/claude-code</code>, then <code>claude auth login</code>, then
+          restart its engine (<code>npm run engine:service -- stop</code> / <code>start</code>).
+        </div>
+      )}
       <div className="max-w-[740px] mx-auto bg-panel-strong border border-panel-border rounded-2xl pt-2.5 px-2.5 pb-2 shadow-2xl">
         <textarea
           rows={1}

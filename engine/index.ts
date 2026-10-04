@@ -439,8 +439,17 @@ async function main(): Promise<void> {
 
   // The device's Claude login can change outside AwayAgent (terminal, VS Code,
   // the Claude app), so re-check it periodically instead of only at startup.
+  let lastAuthState = getAuthStatus().state;
   void saveEngine({ claude_auth: getAuthStatus() });
-  setInterval(() => void saveEngine({ claude_auth: getAuthStatus() }), 5 * 60 * 1000);
+  setInterval(() => {
+    const auth = getAuthStatus();
+    void saveEngine({ claude_auth: auth });
+    // E.g. the CLI was just installed: the MCP list saved without it is stale.
+    if (auth.state !== lastAuthState) {
+      lastAuthState = auth.state;
+      refreshMcp(true).catch((e) => console.error("MCP check failed:", e.message));
+    }
+  }, 5 * 60 * 1000);
   refreshMcp(false).catch((e) => console.error("MCP check failed:", e.message));
   // Let the hub connection and any immediate reattach go first.
   setTimeout(() => void scanLoop(), 10_000);

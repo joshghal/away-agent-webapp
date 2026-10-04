@@ -1,8 +1,7 @@
 "use client";
 import { Dropdown } from "./Dropdown";
 import { useSettingsStore } from "@/store/settingsStore";
-import { useSessionStore } from "@/store/sessionStore";
-import { useEngineStore } from "@/store/engineStore";
+import { useTargetEngine } from "@/lib/client/targetEngine";
 import { applySettingsLive } from "@/lib/client/applySettingsLive";
 import { MODEL_OPTIONS, EFFORT_OPTIONS, PERMISSION_MODE_OPTIONS, MCP_PRESET_OPTIONS } from "@/lib/shared/constants";
 
@@ -13,11 +12,7 @@ export function InlineSettingsDropdowns() {
   const { model, effort, permissionMode, setModel, setEffort, setPermissionMode } = useSettingsStore();
   // The device this session runs on (or a fresh chat would start on) decides
   // whether bypass is allowed; its engine refuses it otherwise.
-  const currentEngineId = useSessionStore((s) => s.currentEngineId);
-  const bypassOff = useEngineStore((s) => {
-    const id = currentEngineId ?? s.preferredId ?? s.online[0];
-    return !!id && s.engines[id]?.allow_bypass === false;
-  });
+  const bypassOff = useTargetEngine()?.allow_bypass === false;
   const permissionOptions = bypassOff
     ? PERMISSION_MODE_OPTIONS.map((o) =>
         o.value === "bypassPermissions" ? { ...o, label: "Bypass (off on this device)" } : o

@@ -18,6 +18,9 @@ export function DevicePicker() {
 
   const current = currentEngineId ?? engineFor(currentProject, currentSessionId) ?? online[0];
   const name = (id: string) => engines[id]?.device_name || id;
+  // Flag a device that can't run chats at all, right where you choose it.
+  const label = (id: string) =>
+    engines[id]?.claude_auth?.state === "cli_missing" ? `${name(id)} · Claude CLI missing` : name(id);
 
   if (currentSessionId && hasHistory) {
     return (
@@ -34,7 +37,7 @@ export function DevicePicker() {
   return (
     <Dropdown
       value={current}
-      options={online.map((id) => ({ value: id, label: name(id) }))}
+      options={online.map((id) => ({ value: id, label: label(id) }))}
       compact
       openUpward
       onChange={(id) => {

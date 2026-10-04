@@ -15,7 +15,9 @@ export function McpPanel() {
   const { loading, error, add, remove, refresh, settle } = useMcpStore();
   const servers = engine?.mcp?.servers ?? [];
   const warnings = engine?.mcp?.warnings ?? [];
-  const checkError = engine?.mcp?.error ?? null;
+  // Without the CLI there is nothing to check; an older saved list may predate this.
+  const noCli = engine?.claude_auth?.state === "cli_missing";
+  const checkError = noCli ? "Claude Code CLI isn't installed on this device." : (engine?.mcp?.error ?? null);
   const checkedAt = engine?.mcp_checked_at ?? null;
 
   // The device writes a fresh result (new mcp_checked_at) when a change lands.
@@ -40,7 +42,7 @@ export function McpPanel() {
       <div className="flex items-center justify-between gap-2 mb-1 text-[10.5px] text-text-3">
         <span>
           {checkedAt ? `Checked ${timeAgo(checkedAt)}` : "Not checked yet"}
-          {servers.length > 0 ? ` · ${servers.filter((s) => s.status === "connected").length}/${servers.length} connected` : ""}
+          {servers.length > 0 && !noCli ? ` · ${servers.filter((s) => s.status === "connected").length}/${servers.length} connected` : ""}
         </span>
         <button
           onClick={() => engineId && refresh(engineId)}
@@ -53,9 +55,11 @@ export function McpPanel() {
       </div>
       <div className="mb-3">
         {loading && <div className="text-[12.5px] text-text-3 text-center py-3">Checking servers on the device (~15s)…</div>}
-        {!loading && servers.length === 0 && (
+        {!loading && (servers.length === 0 || noCli) && (
           <div className={`text-[12.5px] text-center py-5 ${checkError ? "text-warn" : "text-text-3"}`}>
-            {!engine?.mcp
+            {checkError
+              ? `Couldn't check MCP servers: ${checkError}`
+              : !engine?.mcp
               ? deviceOnline
                 ? "This device hasn't reported its MCP servers yet. Press Refresh."
                 : "This device hasn't reported its MCP servers yet. It will when it's back online."
@@ -64,7 +68,7 @@ export function McpPanel() {
                 : "No MCP servers are configured on this device."}
           </div>
         )}
-        {servers.map((s) => (
+        {!noCli && servers.map((s) => (
           <div key={s.name} className="flex items-center gap-2.5 py-2.5 border-b border-panel-border-soft last:border-0">
             <span className={`w-[7px] h-[7px] rounded-full flex-none ${DOT_COLOR[s.status]}`} />
             <div className="flex-1 min-w-0">
