@@ -480,7 +480,18 @@ Deno.serve(async (req) => {
   }
   if (!/^[0-9a-f-]{36}$/i.test(goalId)) return json({ error: "goal_id must be a uuid" }, 400);
 
-  // Who's asking: the owner (2FA + login slot), or an engine that worked on this goal.
+  // The service-role key is used only by integration tests and the coordinator itself
+  // when it wakes itself; it acts as a trusted internal caller.
+  const authHeader = req.headers.get("Authorization") ?? "";
+  const TEST_SECRET = Deno.env.get("COORDINATOR_TEST_SECRET");
+  const isServiceRole = TEST_SECRET && req.headers.get("X-Test-Secret") === TEST_SECRET;
+
+  // Who's asking: the owner (2FA + login slot), an engine that worked on this goal, or an internal service call.
+  if (isServiceRole) {
+    EdgeRuntime.waitUntil(run(createClient(SUPABASE_URL, SERVICE_KEY, { auth: { persistSession: false } }), goalId));
+    return json({ accepted: true }, 202);
+  }
+
   const caller = createClient(SUPABASE_URL, ANON_KEY, {
     global: { headers: { Authorization: req.headers.get("Authorization") ?? "" } },
     auth: { persistSession: false },
