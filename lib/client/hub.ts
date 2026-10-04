@@ -284,8 +284,31 @@ async function handleServerEvent(evt: ServerMessage, engineId: string): Promise<
 // Strictly in order: history_ready awaits a DB read, and live events behind it
 // must not be applied to the chat before the history they follow.
 let eventQueue: Promise<void> = Promise.resolve();
+// A slow history load must never freeze everything behind it.
+const EVENT_TIMEOUT_MS = 20_000;
+
+// Request/response replies don't depend on chat ordering; handle them at once so
+// they can't get stuck behind a slow history load.
+const UNORDERED = new Set(["browse_result", "browse_error", "mcp_error"]);
+
 function enqueueEvent(envelope: HubEnvelope): void {
-  eventQueue = eventQueue.then(() => handleServerEvent(envelope.msg, envelope.engine_id)).catch((e) => console.error("hub event:", e));
+  if (UNORDERED.has(envelope.msg.type)) {
+    void handleServerEvent(envelope.msg, envelope.engine_id).catch((e) => console.error("hub event:", e));
+    return;
+  }
+  eventQueue = eventQueue
+    .then(() =>
+      Promise.race([
+        handleServerEvent(envelope.msg, envelope.engine_id),
+        new Promise<void>((resolve) =>
+          setTimeout(() => {
+            console.warn(`hub event "${envelope.msg.type}" took over ${EVENT_TIMEOUT_MS / 1000}s; continuing`);
+            resolve();
+          }, EVENT_TIMEOUT_MS)
+        ),
+      ])
+    )
+    .catch((e) => console.error("hub event:", e));
 }
 
 // ---------------------------------------------------------------------------
