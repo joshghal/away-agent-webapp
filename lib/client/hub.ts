@@ -386,17 +386,16 @@ function enqueueEvent(envelope: HubEnvelope): void {
     return;
   }
   eventQueue = eventQueue
-    .then(() =>
-      Promise.race([
-        handleServerEvent(envelope.msg, envelope.engine_id),
-        new Promise<void>((resolve) =>
-          setTimeout(() => {
-            console.warn(`hub event "${envelope.msg.type}" took over ${EVENT_TIMEOUT_MS / 1000}s; continuing`);
-            resolve();
-          }, EVENT_TIMEOUT_MS)
-        ),
-      ])
-    )
+    .then(() => {
+      let timer: ReturnType<typeof setTimeout> | undefined;
+      const timeout = new Promise<void>((resolve) => {
+        timer = setTimeout(() => {
+          console.warn(`hub event "${envelope.msg.type}" took over ${EVENT_TIMEOUT_MS / 1000}s; continuing`);
+          resolve();
+        }, EVENT_TIMEOUT_MS);
+      });
+      return Promise.race([handleServerEvent(envelope.msg, envelope.engine_id), timeout]).finally(() => clearTimeout(timer));
+    })
     .catch((e) => console.error("hub event:", e));
 }
 
