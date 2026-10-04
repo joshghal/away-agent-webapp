@@ -2,6 +2,7 @@
 import { forwardRef, useState } from "react";
 import { SendIcon } from "@/components/icons/icons";
 import { InlineSettingsDropdowns } from "@/components/settings/SettingsDropdowns";
+import { DevicePicker } from "./DevicePicker";
 import { send } from "@/lib/client/hub";
 import { useChatStore } from "@/store/chatStore";
 import { useConnectionStore } from "@/store/connectionStore";
@@ -49,6 +50,7 @@ export const InputBar = forwardRef<HTMLDivElement>(function InputBar(_props, ref
           className="w-full resize-none border-none bg-transparent outline-none text-text-1 text-[15.5px] font-sans pt-1 pb-2 max-h-40 placeholder:text-text-3"
         />
         <div className="flex items-center gap-1.5 flex-wrap" style={{ rowGap: "8px" }}>
+          <DevicePicker />
           <InlineSettingsDropdowns />
           <div className="flex-1" />
           <button

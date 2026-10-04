@@ -6,12 +6,16 @@ import { useTabStatusStore } from "@/store/tabStatusStore";
 import { sendInit, engineFor, loadHistoryInto } from "@/lib/client/hub";
 import { updateUrlForCurrent } from "@/lib/client/urlSync";
 
-export function switchProject(path: string, opts: { sessionId?: string; forceNew?: boolean; title?: string } = {}): void {
+export function switchProject(
+  path: string,
+  opts: { sessionId?: string; forceNew?: boolean; title?: string; engineId?: string } = {}
+): void {
   if (!path) return;
   const { sessionId, forceNew, title } = opts;
   const resolvedSessionId = forceNew ? null : sessionId || null;
 
-  useSessionStore.getState().setSession(path, resolvedSessionId, false, engineFor(path, resolvedSessionId));
+  // An explicit device (picked by you) wins over "the device this folder was on".
+  useSessionStore.getState().setSession(path, resolvedSessionId, false, opts.engineId ?? engineFor(path, resolvedSessionId));
   useChatStore.getState().reset();
   useSidebarStore.getState().expand(`${engineFor(path, resolvedSessionId) ?? ""}|${path}`);
   // Visiting a tab resolves its "unread" (finished while you weren't looking)

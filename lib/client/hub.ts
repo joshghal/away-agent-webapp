@@ -57,6 +57,10 @@ export function engineFor(project: string | null, sessionId: string | null): str
   return selectedEngineId();
 }
 
+function deviceName(id: string | null | undefined): string {
+  return (id && useEngineStore.getState().engines[id]?.device_name) || id || "device";
+}
+
 function currentEngine(): string | null {
   const { currentProject, currentSessionId } = useSessionStore.getState();
   return engineFor(currentProject, currentSessionId);
@@ -264,7 +268,7 @@ async function handleServerEvent(evt: ServerMessage, engineId: string): Promise<
   switch (evt.type) {
     case "session_init":
       connectedEngine = engineId;
-      connection.setStatus("connected", `Connected · ${engineId}${evt.reattached ? " · reattached to live session" : ""}`);
+      connection.setStatus("connected", `Connected · ${deviceName(engineId)}${evt.reattached ? " · reattached to live session" : ""}`);
       session.setSession(evt.project, evt.session_id, !!evt.reattached, engineId);
       session.setTurnState("idle");
       connection.setLastInit(null);
@@ -408,12 +412,12 @@ export function refreshConnectionStatus(): void {
   const target = currentEngine();
   if (busySessionId && busySessionId === useSessionStore.getState().currentSessionId) return; // keep the read-only notice
   if (isEngineOnline(target)) {
-    if (connection.status !== "connected") connection.setStatus("connected", `Connected · ${target}`);
+    if (connection.status !== "connected") connection.setStatus("connected", `Connected · ${deviceName(target)}`);
   } else {
     const anyOnline = useEngineStore.getState().online.length > 0;
     connection.setStatus(
       "offline",
-      anyOnline && target ? `${target} is offline — read-only` : "No engine online — read-only"
+      anyOnline && target ? `${deviceName(target)} is offline — read-only` : "No engine online — read-only"
     );
   }
 }
