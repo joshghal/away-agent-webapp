@@ -130,15 +130,15 @@ export function LoginGate({ children }: { children: ReactNode }) {
     setGate("loading");
   }
 
-  async function verifyCode(e: React.FormEvent) {
-    e.preventDefault();
-    if (!factorId) return;
+  async function submitCode(value: string) {
+    if (!factorId || busy) return;
     setBusy(true);
     setError(null);
-    const { error } = await supabase.auth.mfa.challengeAndVerify({ factorId, code: code.trim() });
+    const { error } = await supabase.auth.mfa.challengeAndVerify({ factorId, code: value.trim() });
     if (error) {
       setBusy(false);
       setError(error.message);
+      setCode(""); // a rejected code is spent; clear so the next paste/typing re-submits
       return;
     }
     setCode("");
@@ -147,6 +147,11 @@ export function LoginGate({ children }: { children: ReactNode }) {
     setGate("loading");
     const { data } = await supabase.auth.getSession();
     await check(data.session);
+  }
+
+  async function verifyCode(e: React.FormEvent) {
+    e.preventDefault();
+    await submitCode(code);
   }
 
   if (gate === "ready") return <>{children}</>;
@@ -159,7 +164,12 @@ export function LoginGate({ children }: { children: ReactNode }) {
         pattern="[0-9]{6}"
         maxLength={6}
         value={code}
-        onChange={(e) => setCode(e.target.value.replace(/\D/g, ""))}
+        onChange={(e) => {
+          // Pasting (or typing) the 6th digit verifies straight away.
+          const next = e.target.value.replace(/\D/g, "").slice(0, 6);
+          setCode(next);
+          if (next.length === 6) void submitCode(next);
+        }}
         placeholder="6-digit code"
         required
         autoFocus
