@@ -2,6 +2,8 @@
 import { useEffect, useState } from "react";
 import { PlusIcon, TrashIcon } from "@/components/icons/icons";
 import { Sheet } from "@/components/sheets/Sheet";
+import { Dropdown } from "@/components/settings/Dropdown";
+import { Alert, Button, CheckboxField, IconButton, Switch, TextInput, Textarea } from "@/components/ui";
 import { timeAgo } from "@/lib/client/timeAgo";
 import * as realApi from "@/lib/client/schedules";
 import { buildCron, describeCron, type Frequency, type Schedule } from "@/lib/client/schedules";
@@ -22,8 +24,18 @@ const defaultApi: ScheduleApi = {
   runNow: realApi.runScheduleNow,
 };
 
-const field =
-  "w-full bg-black/22 border border-panel-border-soft rounded-xl px-3 py-2.5 text-[14px] text-text-1 outline-none focus:border-accent-soft-border placeholder:text-text-3";
+const FREQUENCY_OPTIONS = [
+  { value: "hourly", label: "Every hour" },
+  { value: "daily", label: "Every day" },
+  { value: "weekdays", label: "Weekdays" },
+  { value: "weekly", label: "Every week" },
+  { value: "custom", label: "Custom (cron)" },
+];
+
+const WEEKDAY_OPTIONS = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"].map((label, i) => ({
+  value: String(i),
+  label,
+}));
 
 export function SchedulesPanel({ api = defaultApi, onRan }: { api?: ScheduleApi; onRan?: (goalId: string) => void }) {
   const [items, setItems] = useState<Schedule[] | null>(null);
@@ -41,7 +53,18 @@ export function SchedulesPanel({ api = defaultApi, onRan }: { api?: ScheduleApi;
   }
 
   useEffect(() => {
-    void reload();
+    let cancelled = false;
+    api
+      .load()
+      .then((rows) => !cancelled && setItems(rows))
+      .catch((e: Error) => {
+        if (cancelled) return;
+        setError(e.message);
+        setItems((prev) => prev ?? []);
+      });
+    return () => {
+      cancelled = true;
+    };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -60,11 +83,7 @@ export function SchedulesPanel({ api = defaultApi, onRan }: { api?: ScheduleApi;
 
   return (
     <>
-      {error && (
-        <div role="alert" className="mx-3 mt-2 rounded-xl border border-danger/40 bg-danger-soft px-3 py-2 text-[12.5px] text-danger flex-none">
-          {error}
-        </div>
-      )}
+      {error && <Alert>{error}</Alert>}
       <div className="flex-1 min-h-0 overflow-y-auto p-2" data-testid="schedule-list">
         {items === null && <div className="text-[13px] text-text-3 text-center py-10">Loading…</div>}
         {items?.length === 0 && !error && (
@@ -87,24 +106,22 @@ export function SchedulesPanel({ api = defaultApi, onRan }: { api?: ScheduleApi;
                   {s.work && <span className="text-accent-2/70"> · work</span>}
                 </div>
               </div>
-              <button
-                role="switch"
-                aria-checked={s.enabled}
-                aria-label={s.enabled ? "Pause schedule" : "Resume schedule"}
+              <Switch
+                checked={s.enabled}
+                label={s.enabled ? "Pause schedule" : "Resume schedule"}
                 data-testid="schedule-toggle"
                 disabled={busyId === s.id}
-                onClick={() => void act(s.id, () => api.setEnabled(s.id, !s.enabled))}
-                className={`relative w-9 h-5 rounded-full flex-none transition-colors ${s.enabled ? "bg-accent-strong" : "bg-white/15"}`}
-              >
-                <span className={`absolute top-0.5 w-4 h-4 rounded-full bg-white transition-all ${s.enabled ? "left-[18px]" : "left-0.5"}`} />
-              </button>
+                onChange={(on) => void act(s.id, () => api.setEnabled(s.id, on))}
+              />
             </div>
             <div className="text-[12px] text-text-2 mt-2 line-clamp-2 whitespace-pre-wrap">{s.prompt}</div>
             <div className="flex items-center gap-2 mt-2.5">
               <span className="flex-1 text-[11px] text-text-3">
                 {s.last_run_at ? `Last ran ${timeAgo(s.last_run_at)}` : "Never run"}
               </span>
-              <button
+              <Button
+                variant="subtle"
+                size="xs"
                 data-testid="schedule-run"
                 disabled={busyId === s.id}
                 onClick={() =>
@@ -112,34 +129,36 @@ export function SchedulesPanel({ api = defaultApi, onRan }: { api?: ScheduleApi;
                     onRan?.(await api.runNow(s));
                   })
                 }
-                className="text-[12px] px-2.5 py-1 rounded-lg border border-panel-border-soft text-text-2 hover:text-text-1 hover:bg-hover disabled:opacity-50"
               >
                 Run now
-              </button>
-              <button
+              </Button>
+              <IconButton
+                size={28}
+                tone="danger"
                 data-testid="schedule-delete"
                 aria-label="Delete schedule"
                 disabled={busyId === s.id}
                 onClick={() => {
                   if (confirm(`Delete schedule "${s.name}"?`)) void act(s.id, () => api.remove(s.id));
                 }}
-                className="w-7 h-7 rounded-lg flex items-center justify-center text-text-3 hover:text-danger hover:bg-danger-soft disabled:opacity-50"
               >
                 <TrashIcon className="w-[14px] h-[14px]" />
-              </button>
+              </IconButton>
             </div>
           </div>
         ))}
       </div>
       <div className="p-3 border-t border-panel-border-soft flex-none">
-        <button
+        <Button
+          variant="tinted"
+          size="xl"
+          className="w-full flex items-center justify-center gap-2"
           data-testid="schedule-new"
           onClick={() => setComposing(true)}
-          className="w-full flex items-center justify-center gap-2 py-3 rounded-xl bg-accent-soft border border-accent-soft-border text-[13.5px] font-semibold text-accent-2 hover:bg-accent/20 transition-colors active:scale-[0.98]"
         >
           <PlusIcon className="w-4 h-4" />
           New schedule
-        </button>
+        </Button>
       </div>
       <NewScheduleSheet
         open={composing}
@@ -194,79 +213,79 @@ function NewScheduleSheet({ open, api, onClose, onCreated }: { open: boolean; ap
   return (
     <Sheet open={open} onClose={onClose} title="New schedule">
       <div className="space-y-3.5">
-        <input data-testid="schedule-name" value={name} onChange={(e) => setName(e.target.value)} placeholder="Name, e.g. Morning PR check" className={field} />
-        <textarea
+        <TextInput
+          fieldSize="lg"
+          className="w-full"
+          data-testid="schedule-name"
+          value={name}
+          onChange={(e) => setName(e.target.value)}
+          placeholder="Name, e.g. Morning PR check"
+        />
+        <Textarea
           data-testid="schedule-prompt"
           rows={4}
           value={prompt}
           onChange={(e) => setPrompt(e.target.value)}
           placeholder="What should it do each time? Written like a goal, e.g. Review open PRs in nanovest-rn and summarize what needs attention."
-          className={`${field} resize-none leading-relaxed`}
         />
-        <div className="flex gap-2">
-          <select data-testid="schedule-freq" value={freq} onChange={(e) => setFreq(e.target.value as Frequency)} className={field}>
-            <option value="hourly">Every hour</option>
-            <option value="daily">Every day</option>
-            <option value="weekdays">Weekdays</option>
-            <option value="weekly">Every week</option>
-            <option value="custom">Custom (cron)</option>
-          </select>
-          {freq === "weekly" && (
-            <select data-testid="schedule-weekday" value={weekday} onChange={(e) => setWeekday(Number(e.target.value))} className={field}>
-              {["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"].map((d, i) => (
-                <option key={d} value={i}>
-                  {d}
-                </option>
-              ))}
-            </select>
-          )}
-          {freq !== "custom" && freq !== "hourly" && (
-            <input data-testid="schedule-time" type="time" value={time} onChange={(e) => setTime(e.target.value)} className={field} />
-          )}
-          {freq === "hourly" && (
-            <input
-              data-testid="schedule-time"
-              type="time"
-              value={time}
-              onChange={(e) => setTime(e.target.value)}
-              aria-label="Minute past the hour (the hour part is ignored)"
-              className={field}
-            />
-          )}
+        <div data-testid="schedule-freq">
+          <Dropdown value={freq} options={FREQUENCY_OPTIONS} onChange={(v) => setFreq(v as Frequency)} />
         </div>
+        {freq !== "custom" && (
+          <div className="flex gap-2">
+            {freq === "weekly" && (
+              <div className="flex-1 min-w-0" data-testid="schedule-weekday">
+                <Dropdown value={String(weekday)} options={WEEKDAY_OPTIONS} onChange={(v) => setWeekday(Number(v))} />
+              </div>
+            )}
+            <div className="flex-1 min-w-0">
+              <TextInput
+                fieldSize="lg"
+                className="w-full"
+                data-testid="schedule-time"
+                type="time"
+                value={time}
+                onChange={(e) => setTime(e.target.value)}
+                aria-label={freq === "hourly" ? "Minute past the hour (the hour part is ignored)" : "Time of day"}
+              />
+            </div>
+          </div>
+        )}
         {freq === "custom" && (
-          <input
+          <TextInput
+            fieldSize="lg"
+            className="w-full font-mono"
             data-testid="schedule-cron"
             value={custom}
             onChange={(e) => setCustom(e.target.value)}
             placeholder="minute hour day month weekday, e.g. 30 8 * * 1-5"
-            className={`${field} font-mono text-[13px]`}
           />
         )}
-        <input data-testid="schedule-timezone" value={timezone} onChange={(e) => setTimezone(e.target.value)} placeholder="Timezone, e.g. Asia/Jakarta" className={field} />
+        <TextInput
+          fieldSize="lg"
+          className="w-full"
+          data-testid="schedule-timezone"
+          value={timezone}
+          onChange={(e) => setTimezone(e.target.value)}
+          placeholder="Timezone, e.g. Asia/Jakarta"
+        />
         <div className="text-[12px] text-text-3" data-testid="schedule-summary">
           Runs: <span className="text-text-2">{cron ? describeCron(cron) : "…"}</span> ({timezone || "…"}). If the previous run is still going, the next one is skipped.
         </div>
-        <label className="flex items-start gap-3 cursor-pointer">
-          <input type="checkbox" checked={work} onChange={(e) => setWork(e.target.checked)} className="w-4 h-4 mt-0.5 accent-[var(--color-accent)] flex-none" />
-          <div>
-            <div className="text-[13px] text-text-1 font-medium">Work goal</div>
-            <div className="text-[11.5px] text-text-3 mt-0.5">Uses Claude Haiku · runs only on devices tagged &quot;work&quot;</div>
-          </div>
-        </label>
+        <CheckboxField
+          checked={work}
+          onChange={setWork}
+          label="Work goal"
+          description={<>Uses Claude Haiku · runs only on devices tagged &quot;work&quot;</>}
+        />
         {error && (
           <div role="alert" data-testid="schedule-error" className="text-[12px] text-danger">
             {error}
           </div>
         )}
-        <button
-          data-testid="schedule-submit"
-          onClick={() => void submit()}
-          disabled={!ready || busy}
-          className="w-full py-3.5 rounded-xl font-semibold text-[14px] text-white bg-gradient-to-br from-accent-2 to-accent-strong disabled:opacity-40 active:scale-[0.98] transition-transform"
-        >
+        <Button size="lg" className="w-full" data-testid="schedule-submit" onClick={() => void submit()} disabled={!ready || busy}>
           {busy ? "Saving…" : "Create schedule"}
-        </button>
+        </Button>
       </div>
     </Sheet>
   );

@@ -1,5 +1,6 @@
 "use client";
 import { AlertIcon } from "@/components/icons/icons";
+import { Button } from "@/components/ui";
 import { send } from "@/lib/client/hub";
 import { useChatStore } from "@/store/chatStore";
 import { useSessionStore } from "@/store/sessionStore";
@@ -35,18 +36,12 @@ export function ApprovalCard({
       </pre>
       {resolved === "pending" ? (
         <div className="flex gap-2 mt-2.5">
-          <button
-            onClick={() => respond(true)}
-            className="flex-1 py-2 rounded-lg text-[13px] font-semibold bg-success text-[#06281d]"
-          >
+          <Button variant="success" size="block" className="flex-1" onClick={() => respond(true)}>
             Allow
-          </button>
-          <button
-            onClick={() => respond(false)}
-            className="flex-1 py-2 rounded-lg text-[13px] font-semibold bg-danger text-[#2b0a10]"
-          >
+          </Button>
+          <Button variant="danger" size="block" className="flex-1" onClick={() => respond(false)}>
             Deny
-          </button>
+          </Button>
         </div>
       ) : (
         <div className={`mt-2.5 text-[13px] ${resolved === "allowed" ? "text-success" : "text-danger"}`}>

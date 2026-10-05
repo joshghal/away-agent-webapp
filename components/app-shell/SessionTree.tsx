@@ -2,6 +2,7 @@
 import { useState } from "react";
 import { FolderIcon, ChevronRightIcon, ChatIcon, PlusIcon, LaptopIcon, TrashIcon } from "@/components/icons/icons";
 import { Highlighted } from "./Highlighted";
+import { IconButton, cx } from "@/components/ui";
 import { useSidebarStore } from "@/store/sidebarStore";
 import { useSessionStore } from "@/store/sessionStore";
 import { switchProject } from "@/lib/client/switchProject";
@@ -209,18 +210,22 @@ function DeviceFolders({ engineId, dirs }: { engineId: string; dirs: ProjectDire
               <span className="flex-1 text-[13px] font-medium overflow-hidden text-ellipsis whitespace-nowrap">
                 <Highlighted text={folderName} words={words} />
               </span>
-              <button
+              <IconButton
+                size={22}
+                radius="md"
+                tone="muted"
+                className="opacity-0 group-hover:opacity-100"
+                title="New session here"
+                aria-label="New session here"
                 onClick={(e) => {
                   e.stopPropagation();
                   // A new session in this folder must run on this folder's device.
                   if (engineId) setPreferred(engineId);
                   switchProject(dir.projectPath, { forceNew: true });
                 }}
-                title="New session here"
-                className="w-[22px] h-[22px] rounded-md flex-none flex items-center justify-center text-text-3 opacity-0 group-hover:opacity-100 hover:bg-active hover:text-text-1 transition-colors"
               >
                 <PlusIcon className="w-[13px] h-[13px]" />
-              </button>
+              </IconButton>
             </div>
             {expanded && (
               <div className="pl-[21px] mt-px">
@@ -251,21 +256,21 @@ function DeviceFolders({ engineId, dirs }: { engineId: string; dirs: ProjectDire
                           {timeAgo(s.modified)} · {s.messageCount} msgs
                         </div>
                       </div>
-                      <button
+                      <IconButton
+                        size={22}
+                        radius="md"
+                        tone="danger"
+                        className={cx("mt-0.5 opacity-0 group-hover:opacity-100", !online && "cursor-not-allowed")}
+                        disabled={deletingId === s.sessionId || !online}
+                        title={online ? "Delete session" : "Device offline — can't delete"}
+                        aria-label="Delete session"
                         onClick={(e) => {
                           e.stopPropagation();
                           void remove(dir.projectPath, s.sessionId, s.title);
                         }}
-                        disabled={deletingId === s.sessionId}
-                        title={online ? "Delete session" : "Device offline — can't delete"}
-                        className={`w-[22px] h-[22px] mt-0.5 rounded-md flex-none flex items-center justify-center transition-colors ${
-                          online
-                            ? "text-text-3 opacity-0 group-hover:opacity-100 hover:bg-danger-soft hover:text-danger disabled:opacity-50"
-                            : "text-text-3/30 opacity-0 group-hover:opacity-100 cursor-not-allowed"
-                        }`}
                       >
                         <TrashIcon className="w-[13px] h-[13px]" />
-                      </button>
+                      </IconButton>
                     </div>
                   );
                 })}

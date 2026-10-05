@@ -1,5 +1,6 @@
 "use client";
 import { CloseIcon } from "@/components/icons/icons";
+import { IconButton } from "@/components/ui";
 import { useTabsStore, tabKey } from "@/store/tabsStore";
 import { useSessionStore } from "@/store/sessionStore";
 import { useChatStore } from "@/store/chatStore";
@@ -79,13 +80,16 @@ export function TabStrip() {
           >
             <span title={STATUS_LABEL[status]} className={`w-1.5 h-1.5 rounded-full flex-none ${STATUS_DOT_CLASS[status]}`} />
             <span className="overflow-hidden text-ellipsis whitespace-nowrap">{t.label}</span>
-            <button
-              onClick={(e) => handleClose(e, key, t.project, t.sessionId)}
+            <IconButton
+              size={18}
+              radius="full"
+              tone="muted"
               title="Close tab"
-              className="w-[18px] h-[18px] rounded-full flex-none flex items-center justify-center text-text-3 hover:bg-active hover:text-text-1 transition-colors"
+              aria-label="Close tab"
+              onClick={(e) => handleClose(e, key, t.project, t.sessionId)}
             >
               <CloseIcon className="w-2.5 h-2.5" />
-            </button>
+            </IconButton>
           </div>
         );
       })}

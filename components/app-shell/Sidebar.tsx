@@ -3,6 +3,7 @@ import { useEffect } from "react";
 import { CloseIcon, PlusIcon, SearchIcon, ChatIcon } from "@/components/icons/icons";
 import Image from "next/image";
 import { SessionTree } from "./SessionTree";
+import { IconButton } from "@/components/ui";
 import { useSidebarStore } from "@/store/sidebarStore";
 import { useUiStore } from "@/store/uiStore";
 import { refreshSessions } from "@/lib/client/fetchSessions";
@@ -53,12 +54,9 @@ export function Sidebar() {
               AwayAgent
             </span>
           </div>
-          <button
-            onClick={() => setDrawerOpen(false)}
-            className="md:hidden w-[34px] h-[34px] rounded-lg flex-none flex items-center justify-center text-text-2 hover:bg-hover"
-          >
+          <IconButton className="md:hidden" onClick={() => setDrawerOpen(false)} aria-label="Close menu">
             <CloseIcon className="w-[17px] h-[17px]" />
-          </button>
+          </IconButton>
         </div>
 
         <div className="flex-1 min-h-0 overflow-y-auto p-3">

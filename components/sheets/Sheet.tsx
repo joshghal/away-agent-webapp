@@ -2,6 +2,7 @@
 import type { ReactNode } from "react";
 import { createPortal } from "react-dom";
 import { CloseIcon } from "@/components/icons/icons";
+import { IconButton } from "@/components/ui";
 
 export function Sheet({
   open,
@@ -36,12 +37,9 @@ export function Sheet({
           <h3 className="m-0 text-[26px] leading-none" style={{ fontFamily: "var(--font-brand)" }}>
             {title}
           </h3>
-          <button
-            onClick={onClose}
-            className="w-[34px] h-[34px] rounded-lg flex-none flex items-center justify-center text-text-2 hover:bg-hover hover:text-text-1 transition-colors"
-          >
+          <IconButton onClick={onClose} aria-label="Close">
             <CloseIcon className="w-[17px] h-[17px]" />
-          </button>
+          </IconButton>
         </div>
         <div className="flex-1 min-h-0 overflow-y-auto px-5 pb-6">{children}</div>
       </div>

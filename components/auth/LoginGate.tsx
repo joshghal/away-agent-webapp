@@ -5,19 +5,11 @@ import type { Session } from "@supabase/supabase-js";
 import { supabase } from "@/lib/client/supabase";
 import { claimSlot, startSlotHeartbeat, KICKED_NOTICE_KEY, type SlotResult } from "@/lib/client/loginSlot";
 import { timeAgo } from "@/lib/client/timeAgo";
+import { Button, TextInput } from "@/components/ui";
 
 // Owners need a 2FA-verified session (aal2): the database itself refuses data
 // otherwise (see the require_mfa migration), this screen just guides you there.
 type GateState = "loading" | "signedOut" | "notMember" | "mfaEnroll" | "mfaVerify" | "slotTaken" | "ready";
-
-const inputClass =
-  "bg-black/22 border border-panel-border-soft rounded-lg py-2.5 px-3 text-[13.5px] text-text-1 placeholder:text-text-3 outline-none focus:border-accent-soft-border";
-const primaryClass =
-  "mt-1 rounded-lg py-2.5 text-[13.5px] font-semibold text-white bg-gradient-to-br from-accent-2 to-accent-strong disabled:opacity-60 flex items-center justify-center gap-2";
-
-function Spinner() {
-  return <span className="w-[13px] h-[13px] rounded-full border-2 border-white/25 border-t-white animate-spin-slow" />;
-}
 
 export function LoginGate({ children }: { children: ReactNode }) {
   const [gate, setGate] = useState<GateState>("loading");
@@ -158,7 +150,7 @@ export function LoginGate({ children }: { children: ReactNode }) {
 
   const codeForm = (
     <form onSubmit={verifyCode} className="flex flex-col gap-2.5">
-      <input
+      <TextInput
         inputMode="numeric"
         autoComplete="one-time-code"
         pattern="[0-9]{6}"
@@ -173,13 +165,12 @@ export function LoginGate({ children }: { children: ReactNode }) {
         placeholder="6-digit code"
         required
         autoFocus
-        className={`${inputClass} tracking-[0.3em] text-center`}
+        className="tracking-[0.3em] text-center"
       />
       {error && <div className="text-[12px] text-danger">{error}</div>}
-      <button type="submit" disabled={busy || code.length !== 6} className={primaryClass}>
-        {busy && <Spinner />}
+      <Button type="submit" size="form" className="mt-1" busy={busy} disabled={code.length !== 6}>
         {busy ? "Verifying…" : "Verify"}
-      </button>
+      </Button>
     </form>
   );
 
@@ -202,29 +193,26 @@ export function LoginGate({ children }: { children: ReactNode }) {
 
         {gate === "signedOut" && (
           <form onSubmit={signIn} className="flex flex-col gap-2.5">
-            <input
+            <TextInput
               type="email"
               autoComplete="username"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
               placeholder="Email"
               required
-              className={inputClass}
             />
-            <input
+            <TextInput
               type="password"
               autoComplete="current-password"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
               placeholder="Password"
               required
-              className={inputClass}
             />
             {error && <div className="text-[12px] text-danger">{error}</div>}
-            <button type="submit" disabled={busy} className={primaryClass}>
-              {busy && <Spinner />}
+            <Button type="submit" size="form" className="mt-1" busy={busy}>
               {busy ? "Signing in…" : "Sign in"}
-            </button>
+            </Button>
           </form>
         )}
 
@@ -261,19 +249,19 @@ export function LoginGate({ children }: { children: ReactNode }) {
               Only one device can be signed in at a time. Sign out there first — or if that device is closed or lost, this
               frees up automatically after 10 minutes of inactivity.
             </p>
-            <button
+            <Button
+              size="form"
+              className="w-full mt-1"
+              busy={busy}
               onClick={async () => {
                 setBusy(true);
                 const { data } = await supabase.auth.getSession();
                 await check(data.session);
                 setBusy(false);
               }}
-              disabled={busy}
-              className={`w-full ${primaryClass}`}
             >
-              {busy && <Spinner />}
               {busy ? "Checking…" : "Try again"}
-            </button>
+            </Button>
           </>
         )}
 

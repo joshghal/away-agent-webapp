@@ -1,6 +1,7 @@
 "use client";
 import { useEffect, useState } from "react";
 import { Sheet, FieldLabel } from "./Sheet";
+import { Button, IconButton, TextInput, cx } from "@/components/ui";
 import { FolderIcon, PinIcon, ChevronRightIcon } from "@/components/icons/icons";
 import { useUiStore } from "@/store/uiStore";
 import { usePinnedDirsStore } from "@/store/pinnedDirsStore";
@@ -81,13 +82,17 @@ export function NewSessionSheet() {
               </span>
               <span className="text-[10.5px] text-text-3 overflow-hidden text-ellipsis whitespace-nowrap max-w-[120px]">{path}</span>
             </button>
-            <button
-              onClick={() => toggle(path)}
+            <IconButton
+              size={22}
+              radius="md"
+              tone="accent"
+              className="opacity-0 group-hover:opacity-100"
               title="Unpin"
-              className="flex-none w-[22px] h-[22px] rounded-md flex items-center justify-center text-accent-2 opacity-0 group-hover:opacity-100 hover:bg-active transition-opacity"
+              aria-label="Unpin"
+              onClick={() => toggle(path)}
             >
               <PinIcon className="w-[13px] h-[13px]" fill="currentColor" />
-            </button>
+            </IconButton>
           </div>
         ))}
       </div>
@@ -99,13 +104,9 @@ export function NewSessionSheet() {
         <div className="bg-black/22 border border-panel-border-soft rounded-lg overflow-hidden mb-1">
           <div className="flex items-center gap-2 px-2.5 py-2 border-b border-panel-border-soft">
             {browse.parent && (
-              <button
-                onClick={() => load(browse.parent!)}
-                title="Up one level"
-                className="flex-none w-[22px] h-[22px] rounded-md flex items-center justify-center text-text-2 hover:bg-active hover:text-text-1"
-              >
+              <IconButton size={22} radius="md" title="Up one level" aria-label="Up one level" onClick={() => load(browse.parent!)}>
                 <ChevronRightIcon className="w-[12px] h-[12px] rotate-180" />
-              </button>
+              </IconButton>
             )}
             <span className="flex-1 min-w-0 text-[11.5px] text-text-2 overflow-hidden text-ellipsis whitespace-nowrap" title={browse.path}>
               {browse.path}
@@ -128,15 +129,17 @@ export function NewSessionSheet() {
                   <FolderIcon className="w-[13px] h-[13px] flex-none text-text-3" />
                   <span className="flex-1 min-w-0 text-[12.5px] text-text-1 overflow-hidden text-ellipsis whitespace-nowrap">{d.name}</span>
                 </button>
-                <button
-                  onClick={() => toggle(d.path)}
+                <IconButton
+                  size={22}
+                  radius="md"
+                  tone={isPinned(d.path) ? "accent" : "muted"}
+                  className={cx("mr-1.5", isPinned(d.path) ? "opacity-100" : "opacity-0 group-hover:opacity-100")}
                   title={isPinned(d.path) ? "Unpin" : "Pin"}
-                  className={`flex-none w-[22px] h-[22px] mr-1.5 rounded-md flex items-center justify-center transition-opacity ${
-                    isPinned(d.path) ? "text-accent-2 opacity-100" : "text-text-3 opacity-0 group-hover:opacity-100"
-                  } hover:bg-active`}
+                  aria-label={isPinned(d.path) ? "Unpin" : "Pin"}
+                  onClick={() => toggle(d.path)}
                 >
                   <PinIcon className="w-[12px] h-[12px]" fill={isPinned(d.path) ? "currentColor" : "none"} />
-                </button>
+                </IconButton>
               </div>
             ))}
           </div>
@@ -145,21 +148,19 @@ export function NewSessionSheet() {
 
       <FieldLabel>Or type a path</FieldLabel>
       <div className="flex gap-1.5">
-        <input
+        <TextInput
+          fieldSize="xs"
+          className="flex-1 min-w-0"
           value={customPath}
           onChange={(e) => setCustomPath(e.target.value)}
           onKeyDown={(e) => {
             if (e.key === "Enter" && customPath.trim()) start(customPath.trim());
           }}
           placeholder="/path/to/project"
-          className="flex-1 min-w-0 bg-black/22 border border-panel-border-soft rounded-lg py-2 px-2.5 text-[12.5px] text-text-1 placeholder:text-text-3 outline-none focus:border-accent-soft-border"
         />
-        <button
-          onClick={() => customPath.trim() && start(customPath.trim())}
-          className="flex-none px-3.5 rounded-lg bg-panel-strong border border-panel-border-soft text-text-2 hover:text-text-1 text-[12.5px] font-medium transition-colors"
-        >
+        <Button variant="secondary" size="field" className="flex-none" onClick={() => customPath.trim() && start(customPath.trim())}>
           Start
-        </button>
+        </Button>
       </div>
     </Sheet>
   );

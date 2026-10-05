@@ -1,15 +1,16 @@
 "use client";
 import { useEffect, useMemo, useRef, useState } from "react";
-import { useGoalsStore, type Goal, type GoalMessage, type Task, type ToolCall } from "@/store/goalsStore";
+import { useGoalsStore, type Goal, type GoalMessage, type Task } from "@/store/goalsStore";
 import { useEngineStore } from "@/store/engineStore";
 import { useUiStore } from "@/store/uiStore";
 import { loadGoals, loadGoal, createGoal, postMessage, cancelTask, setGoalStatus, subscribeCoordinator } from "@/lib/client/coordinator";
 import { switchProject } from "@/lib/client/switchProject";
 import { renderMarkdown } from "@/lib/client/renderMarkdown";
 import { timeAgo } from "@/lib/client/timeAgo";
-import { SendIcon, PlusIcon, ChevronRightIcon, CloseIcon } from "@/components/icons/icons";
+import { SendIcon, PlusIcon, ChevronRightIcon } from "@/components/icons/icons";
 import { Sheet } from "@/components/sheets/Sheet";
 import { SchedulesPanel } from "./SchedulesPanel";
+import { Alert, Button, CheckboxField, IconButton, Textarea } from "@/components/ui";
 
 // ---- Status helpers ----
 
@@ -104,12 +105,7 @@ export function CoordinatorView() {
 
       {/* Detail — full screen on mobile when selected, right panel on desktop */}
       <div className={`${selected ? "flex" : "hidden md:flex"} flex-1 min-w-0 flex-col min-h-0 overflow-hidden`}>
-        {error && (
-          <div role="alert" className="mx-3 mt-2 mb-0 rounded-xl border border-danger/40 bg-danger-soft px-3 py-2 text-[12.5px] text-danger flex gap-2 items-start flex-none">
-            <span className="flex-1">{error}</span>
-            <button onClick={() => setError(null)} aria-label="Dismiss"><CloseIcon className="w-4 h-4 opacity-60" /></button>
-          </div>
-        )}
+        {error && <Alert onDismiss={() => setError(null)}>{error}</Alert>}
         {selected
           ? <GoalDetail goal={selected} onBack={() => select(null)} />
           : <EmptyState />}
@@ -138,13 +134,10 @@ function GoalList({ goals, loaded, selectedId, onSelect, onCreated }: {
         {goals.map((g) => <GoalRow key={g.id} goal={g} selected={g.id === selectedId} onClick={() => onSelect(g.id)} />)}
       </div>
       <div className="p-3 border-t border-panel-border-soft flex-none">
-        <button
-          onClick={() => setComposing(true)}
-          className="w-full flex items-center justify-center gap-2 py-3 rounded-xl bg-accent-soft border border-accent-soft-border text-[13.5px] font-semibold text-accent-2 hover:bg-accent/20 transition-colors active:scale-[0.98]"
-        >
+        <Button variant="tinted" size="xl" className="w-full flex items-center justify-center gap-2" onClick={() => setComposing(true)}>
           <PlusIcon className="w-4 h-4" />
           New goal
-        </button>
+        </Button>
       </div>
       <NewGoalSheet
         open={composing}
@@ -197,34 +190,23 @@ function NewGoalSheet({ open, onClose, onCreated }: {
   return (
     <Sheet open={open} onClose={onClose} title="New goal">
       <div className="space-y-4">
-        <textarea
+        <Textarea
           rows={5}
           autoFocus
           value={text}
           onChange={(e) => setText(e.target.value)}
           onKeyDown={(e) => { if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) void submit(); }}
           placeholder={'Describe what you want done — e.g. "Add a dark-mode toggle, get it reviewed, then open a PR."'}
-          className="w-full resize-none bg-black/22 border border-panel-border-soft rounded-xl p-3 text-[14px] text-text-1 outline-none focus:border-accent-soft-border placeholder:text-text-3 leading-relaxed"
         />
-        <label className="flex items-start gap-3 cursor-pointer">
-          <input
-            type="checkbox"
-            checked={work}
-            onChange={(e) => setWork(e.target.checked)}
-            className="w-4 h-4 mt-0.5 accent-[var(--color-accent)] flex-none"
-          />
-          <div>
-            <div className="text-[13px] text-text-1 font-medium">Work goal</div>
-            <div className="text-[11.5px] text-text-3 mt-0.5">Uses Claude Haiku · runs only on devices tagged "work"</div>
-          </div>
-        </label>
-        <button
-          onClick={() => void submit()}
-          disabled={!text.trim() || busy}
-          className="w-full py-3.5 rounded-xl font-semibold text-[14px] text-white bg-gradient-to-br from-accent-2 to-accent-strong disabled:opacity-40 active:scale-[0.98] transition-transform"
-        >
+        <CheckboxField
+          checked={work}
+          onChange={setWork}
+          label="Work goal"
+          description={<>Uses Claude Haiku · runs only on devices tagged &quot;work&quot;</>}
+        />
+        <Button size="lg" className="w-full" onClick={() => void submit()} disabled={!text.trim() || busy}>
           {busy ? "Starting…" : "Start goal"}
-        </button>
+        </Button>
       </div>
     </Sheet>
   );
@@ -269,13 +251,9 @@ function GoalDetail({ goal, onBack }: { goal: Goal; onBack: () => void }) {
     <>
       {/* Header */}
       <div className="flex-none px-3 py-2.5 border-b border-panel-border-soft flex items-center gap-2">
-        <button
-          onClick={onBack}
-          className="md:hidden flex-none w-8 h-8 flex items-center justify-center text-text-2 hover:text-text-1 -ml-1.5 rounded-lg"
-          aria-label="Back"
-        >
+        <IconButton size={32} className="md:hidden -ml-1.5" onClick={onBack} aria-label="Back">
           <ChevronRightIcon className="w-4 h-4 rotate-180" />
-        </button>
+        </IconButton>
         <div className="flex-1 min-w-0">
           <div className="text-[13.5px] font-medium text-text-1 truncate leading-snug">{shortTitle}</div>
           <div className="flex items-center gap-2 mt-0.5 text-[11px]">
@@ -301,13 +279,9 @@ function GoalDetail({ goal, onBack }: { goal: Goal; onBack: () => void }) {
 
         {/* ··· menu */}
         <div className="relative flex-none">
-          <button
-            onClick={() => setMenuOpen(!menuOpen)}
-            className="w-9 h-9 flex items-center justify-center text-text-2 hover:text-text-1 hover:bg-hover rounded-xl"
-            aria-label="More actions"
-          >
+          <IconButton size={36} radius="xl" onClick={() => setMenuOpen(!menuOpen)} aria-label="More actions">
             <span className="text-[18px] leading-none tracking-tighter">···</span>
-          </button>
+          </IconButton>
           {menuOpen && (
             <>
               <div className="fixed inset-0 z-20" onClick={() => setMenuOpen(false)} />
@@ -408,14 +382,9 @@ function GoalDetail({ goal, onBack }: { goal: Goal; onBack: () => void }) {
             placeholder={goal.status === "active" ? "Reply to the coordinator…" : "Write to reopen this goal…"}
             className="flex-1 resize-none bg-transparent outline-none text-[14.5px] text-text-1 py-1 max-h-32 placeholder:text-text-3"
           />
-          <button
-            onClick={send}
-            disabled={!text.trim()}
-            aria-label="Send"
-            className="w-9 h-9 rounded-full flex-none flex items-center justify-center text-white bg-gradient-to-br from-accent-2 to-accent-strong disabled:opacity-30 active:scale-90 transition-transform"
-          >
+          <IconButton size={36} radius="full" tone="primary" onClick={send} disabled={!text.trim()} aria-label="Send">
             <SendIcon className="w-4 h-4" />
-          </button>
+          </IconButton>
         </div>
       </div>
 
@@ -482,7 +451,10 @@ function TaskSheet({ task, tasks, onClose }: { task: Task | null; tasks: Task[];
         {/* Actions */}
         <div className="flex gap-2 pt-1">
           {canOpen && (
-            <button
+            <Button
+              variant="outline"
+              size="xl"
+              className="flex-1"
               onClick={() => {
                 switchProject((task.worktree || task.project_path)!, {
                   sessionId: task.session_id!,
@@ -492,18 +464,14 @@ function TaskSheet({ task, tasks, onClose }: { task: Task | null; tasks: Task[];
                 setView("chat");
                 onClose();
               }}
-              className="flex-1 py-3 rounded-xl border border-panel-border text-[13.5px] font-medium text-text-1 hover:bg-hover transition-colors"
             >
               Open session
-            </button>
+            </Button>
           )}
           {(task.status === "queued" || task.status === "running") && (
-            <button
-              onClick={() => { void cancelTask(task); onClose(); }}
-              className="flex-1 py-3 rounded-xl border border-danger/30 text-[13.5px] font-medium text-danger hover:bg-danger-soft transition-colors"
-            >
+            <Button variant="outlineDanger" size="xl" className="flex-1" onClick={() => { void cancelTask(task); onClose(); }}>
               Cancel
-            </button>
+            </Button>
           )}
         </div>
       </div>

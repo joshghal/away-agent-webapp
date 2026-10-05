@@ -4,6 +4,7 @@ import { useMcpStore } from "@/store/mcpStore";
 import { useAuthStore } from "@/store/authStore";
 import { useEngineStore } from "@/store/engineStore";
 import { timeAgo } from "@/lib/client/timeAgo";
+import { Button, TextInput } from "@/components/ui";
 
 const DOT_COLOR = { connected: "bg-success", needs_auth: "bg-warn", failed: "bg-danger" };
 
@@ -91,25 +92,23 @@ export function McpPanel() {
       {warnings.length > 0 && <div className="text-[11px] text-warn mb-2.5 whitespace-pre-wrap">{warnings.join("\n")}</div>}
       {error && <div className="text-[11px] text-danger mb-2.5">MCP change failed: {error}</div>}
       <div className="flex gap-1.5 mb-2">
-        <input
+        <TextInput
+          fieldSize="sm"
+          className="flex-none w-[35%] min-w-0"
           value={name}
           onChange={(e) => setName(e.target.value)}
           placeholder="Server name"
-          className="flex-none w-[35%] min-w-0 bg-black/22 border border-panel-border-soft rounded-lg py-2.5 px-2.5 text-[13px] text-text-1 outline-none focus:border-accent-soft-border"
         />
-        <input
+        <TextInput
+          fieldSize="sm"
+          className="flex-1 min-w-0"
           value={url}
           onChange={(e) => setUrl(e.target.value)}
           placeholder="https://…"
-          className="flex-1 min-w-0 bg-black/22 border border-panel-border-soft rounded-lg py-2.5 px-2.5 text-[13px] text-text-1 outline-none focus:border-accent-soft-border"
         />
-        <button
-          onClick={addServer}
-          disabled={loading || !deviceOnline}
-          className="flex-none bg-success text-[#06281d] rounded-lg py-2.5 px-4 text-[13px] font-semibold disabled:opacity-60"
-        >
+        <Button variant="success" className="flex-none" onClick={addServer} disabled={loading || !deviceOnline}>
           Add
-        </button>
+        </Button>
       </div>
       <div className="text-[10.5px] text-text-3 leading-relaxed">
         Only HTTP servers can be added here. Local (stdio) servers, and finishing a &quot;Needs authentication&quot;

@@ -3,6 +3,7 @@ import { useState } from "react";
 import { useAuthStore } from "@/store/authStore";
 import { useEngineStore } from "@/store/engineStore";
 import { send } from "@/lib/client/hub";
+import { Button, TextInput } from "@/components/ui";
 
 export function AuthPanel() {
   const { status: lastStatus, loginUrl, loginMessage, engineId, deviceName } = useAuthStore();
@@ -71,15 +72,16 @@ export function AuthPanel() {
             {loginUrl}
           </a>
           <div className="flex gap-2">
-            <input
+            <TextInput
+              fieldSize="sm"
+              className="flex-1 min-w-0"
               value={code}
               onChange={(e) => setCode(e.target.value)}
               placeholder="Paste the code here"
-              className="flex-1 min-w-0 bg-black/22 border border-panel-border-soft rounded-lg py-2.5 px-2.5 text-[13px] text-text-1 outline-none focus:border-accent-soft-border"
             />
-            <button onClick={submitCode} className="flex-none bg-success text-[#06281d] rounded-lg py-2.5 px-4 text-[13px] font-semibold">
+            <Button variant="success" className="flex-none" onClick={submitCode}>
               Submit
-            </button>
+            </Button>
           </div>
         </div>
       )}
@@ -92,13 +94,9 @@ export function AuthPanel() {
         </div>
       )}
       {!loginUrl && (
-        <button
-          onClick={startLogin}
-          disabled={!deviceOnline || status?.state === "cli_missing"}
-          className="bg-gradient-to-br from-accent-2 to-accent-strong border-none rounded-lg py-2.5 px-4 text-white text-[13px] font-semibold disabled:opacity-40 disabled:cursor-not-allowed"
-        >
+        <Button onClick={startLogin} disabled={!deviceOnline || status?.state === "cli_missing"}>
           Start login
-        </button>
+        </Button>
       )}
     </>
   );

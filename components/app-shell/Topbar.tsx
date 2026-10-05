@@ -1,6 +1,7 @@
 "use client";
 import { MenuIcon, SlidersIcon } from "@/components/icons/icons";
 import { TurnStateBadge } from "./TurnStateBadge";
+import { IconButton } from "@/components/ui";
 import { useConnectionStore } from "@/store/connectionStore";
 import { useUiStore } from "@/store/uiStore";
 
@@ -10,13 +11,9 @@ export function Topbar() {
 
   return (
     <div className="flex items-center gap-2 px-4 py-3 flex-none">
-      <button
-        onClick={() => setDrawerOpen(true)}
-        aria-label="Menu"
-        className="md:hidden w-[34px] h-[34px] rounded-lg flex items-center justify-center text-text-2 hover:bg-hover hover:text-text-1 transition-colors flex-none"
-      >
+      <IconButton className="md:hidden" onClick={() => setDrawerOpen(true)} aria-label="Menu">
         <MenuIcon className="w-[17px] h-[17px]" />
-      </button>
+      </IconButton>
       <div
         className={`flex-1 text-[11.5px] overflow-hidden text-ellipsis whitespace-nowrap ${
           status === "connected" ? "text-success" : status === "error" ? "text-danger" : status === "offline" ? "text-warn" : "text-text-3"
