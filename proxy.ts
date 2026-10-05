@@ -1,4 +1,5 @@
 import { NextResponse, type NextRequest } from "next/server";
+import { createRemoteJWKSet, jwtVerify } from "jose";
 
 // Content Security Policy, the second line of defense behind renderMarkdown's
 // sanitizing. With a fresh nonce per request, only Next's own scripts run: injected
@@ -8,20 +9,28 @@ const supabase = new URL(process.env.NEXT_PUBLIC_SUPABASE_URL!);
 const SUPABASE_HTTPS = supabase.origin;
 const SUPABASE_WSS = `wss://${supabase.host}`;
 
-// Origin lock: when ORIGIN_AUTH_SECRET is set, only requests carrying it are served.
-// Cloudflare adds the header to traffic that passed its Access check, so the
-// vercel.app address can't be used to skip that gate. Unset = no enforcement.
-const ORIGIN_SECRET = process.env.ORIGIN_AUTH_SECRET;
+// Origin lock: when ACCESS_TEAM_DOMAIN and ACCESS_AUD are set, only requests that carry
+// a valid Cloudflare Access token for this application are served. Access signs the
+// token (and adds it to every request that passed its login), so the vercel.app
+// address can't be used to skip that gate and the token can't be forged.
+// Unset = no enforcement.
+const ACCESS_TEAM = process.env.ACCESS_TEAM_DOMAIN;
+const ACCESS_AUD = process.env.ACCESS_AUD;
+const accessKeys = ACCESS_TEAM ? createRemoteJWKSet(new URL(`https://${ACCESS_TEAM}/cdn-cgi/access/certs`)) : null;
 
-function sameSecret(a: string, b: string): boolean {
-  if (a.length !== b.length) return false;
-  let diff = 0;
-  for (let i = 0; i < a.length; i++) diff |= a.charCodeAt(i) ^ b.charCodeAt(i);
-  return diff === 0;
+async function passedAccess(request: NextRequest): Promise<boolean> {
+  const token = request.headers.get("cf-access-jwt-assertion");
+  if (!token || !accessKeys || !ACCESS_AUD) return false;
+  try {
+    await jwtVerify(token, accessKeys, { issuer: `https://${ACCESS_TEAM}`, audience: ACCESS_AUD });
+    return true;
+  } catch {
+    return false;
+  }
 }
 
-export function proxy(request: NextRequest) {
-  if (ORIGIN_SECRET && !sameSecret(request.headers.get("x-origin-auth") ?? "", ORIGIN_SECRET)) {
+export async function proxy(request: NextRequest) {
+  if (ACCESS_TEAM && ACCESS_AUD && !(await passedAccess(request))) {
     return new NextResponse("Forbidden", { status: 403 });
   }
   const nonce = Buffer.from(crypto.randomUUID()).toString("base64");
