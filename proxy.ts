@@ -8,7 +8,22 @@ const supabase = new URL(process.env.NEXT_PUBLIC_SUPABASE_URL!);
 const SUPABASE_HTTPS = supabase.origin;
 const SUPABASE_WSS = `wss://${supabase.host}`;
 
+// Origin lock: when ORIGIN_AUTH_SECRET is set, only requests carrying it are served.
+// Cloudflare adds the header to traffic that passed its Access check, so the
+// vercel.app address can't be used to skip that gate. Unset = no enforcement.
+const ORIGIN_SECRET = process.env.ORIGIN_AUTH_SECRET;
+
+function sameSecret(a: string, b: string): boolean {
+  if (a.length !== b.length) return false;
+  let diff = 0;
+  for (let i = 0; i < a.length; i++) diff |= a.charCodeAt(i) ^ b.charCodeAt(i);
+  return diff === 0;
+}
+
 export function proxy(request: NextRequest) {
+  if (ORIGIN_SECRET && !sameSecret(request.headers.get("x-origin-auth") ?? "", ORIGIN_SECRET)) {
+    return new NextResponse("Forbidden", { status: 403 });
+  }
   const nonce = Buffer.from(crypto.randomUUID()).toString("base64");
   const isDev = process.env.NODE_ENV === "development";
   const csp = [
