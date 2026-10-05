@@ -25,7 +25,7 @@ export async function loadGoal(goalId: string): Promise<void> {
   useGoalsStore.getState().setThread(goalId, msgs.data as GoalMessage[], tasks.data as Task[]);
 }
 
-async function wake(goalId: string): Promise<void> {
+export async function wake(goalId: string): Promise<void> {
   const { error } = await supabase.functions.invoke("coordinator", { body: { goal_id: goalId } });
   if (!error) return;
   let message = error.message;

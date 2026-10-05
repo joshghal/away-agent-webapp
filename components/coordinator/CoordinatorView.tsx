@@ -9,6 +9,7 @@ import { renderMarkdown } from "@/lib/client/renderMarkdown";
 import { timeAgo } from "@/lib/client/timeAgo";
 import { SendIcon, PlusIcon, ChevronRightIcon, CloseIcon } from "@/components/icons/icons";
 import { Sheet } from "@/components/sheets/Sheet";
+import { SchedulesPanel } from "./SchedulesPanel";
 
 // ---- Status helpers ----
 
@@ -57,6 +58,7 @@ function useDeviceName() {
 export function CoordinatorView() {
   const { goals, loaded, selectedId, select, error, setError } = useGoalsStore();
   const selected = goals.find((g) => g.id === selectedId) ?? null;
+  const [tab, setTab] = useState<"goals" | "schedules">("goals");
 
   useEffect(() => { subscribeCoordinator(); void loadGoals(); }, []);
   useEffect(() => { if (selectedId) void loadGoal(selectedId); }, [selectedId]);
@@ -65,13 +67,39 @@ export function CoordinatorView() {
     <div className="flex-1 min-h-0 flex overflow-hidden">
       {/* Goal list — full screen on mobile when nothing selected, left panel on desktop */}
       <div className={`${selected ? "hidden md:flex" : "flex"} w-full md:w-72 flex-none flex-col min-h-0 border-r border-panel-border-soft`}>
-        <GoalList
-          goals={goals}
-          loaded={loaded}
-          selectedId={selectedId}
-          onSelect={select}
-          onCreated={(id) => select(id)}
-        />
+        <div role="tablist" className="flex gap-1 px-2 pt-2 pb-1.5 border-b border-panel-border-soft flex-none">
+          {(["goals", "schedules"] as const).map((t) => (
+            <button
+              key={t}
+              role="tab"
+              aria-selected={tab === t}
+              data-testid={`tab-${t}`}
+              onClick={() => setTab(t)}
+              className={`flex-1 py-1.5 rounded-lg text-[12px] font-semibold uppercase tracking-wider transition-colors ${
+                tab === t ? "bg-active text-text-1" : "text-text-3 hover:text-text-2"
+              }`}
+            >
+              {t}
+            </button>
+          ))}
+        </div>
+        {tab === "goals" ? (
+          <GoalList
+            goals={goals}
+            loaded={loaded}
+            selectedId={selectedId}
+            onSelect={select}
+            onCreated={(id) => select(id)}
+          />
+        ) : (
+          <SchedulesPanel
+            onRan={(id) => {
+              void loadGoals();
+              select(id);
+              setTab("goals");
+            }}
+          />
+        )}
       </div>
 
       {/* Detail — full screen on mobile when selected, right panel on desktop */}
@@ -99,9 +127,6 @@ function GoalList({ goals, loaded, selectedId, onSelect, onCreated }: {
   const [composing, setComposing] = useState(false);
   return (
     <>
-      <div className="px-3 py-2.5 border-b border-panel-border-soft flex-none">
-        <div className="text-[11px] font-bold uppercase tracking-widest text-text-3">Goals</div>
-      </div>
       <div className="flex-1 min-h-0 overflow-y-auto p-2">
         {!loaded && <div className="text-[13px] text-text-3 text-center py-10">Loading…</div>}
         {loaded && !goals.length && (

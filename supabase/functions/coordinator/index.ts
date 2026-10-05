@@ -483,8 +483,12 @@ Deno.serve(async (req) => {
   // The service-role key is used only by integration tests and the coordinator itself
   // when it wakes itself; it acts as a trusted internal caller.
   const authHeader = req.headers.get("Authorization") ?? "";
-  const TEST_SECRET = Deno.env.get("COORDINATOR_TEST_SECRET");
-  const isServiceRole = TEST_SECRET && req.headers.get("X-Test-Secret") === TEST_SECRET;
+  // Internal wake secret: used by the database's schedule runner (and integration
+  // tests). Compared in constant time; unset = this path is closed.
+  const WAKE_SECRET = Deno.env.get("COORDINATOR_WAKE_SECRET");
+  const given = req.headers.get("X-Test-Secret") ?? "";
+  const isServiceRole = !!WAKE_SECRET && given.length === WAKE_SECRET.length &&
+    [...given].reduce((d, c, i) => d | (c.charCodeAt(0) ^ WAKE_SECRET.charCodeAt(i)), 0) === 0;
 
   // Who's asking: the owner (2FA + login slot), an engine that worked on this goal, or an internal service call.
   if (isServiceRole) {
