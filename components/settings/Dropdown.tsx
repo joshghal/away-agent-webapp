@@ -45,6 +45,8 @@ export function Dropdown({
     <div ref={rootRef} className={`relative ${compact ? "flex-none min-w-0 max-w-[92px]" : ""}`}>
       <button
         type="button"
+        aria-haspopup="listbox"
+        aria-expanded={open}
         onClick={(e) => {
           e.stopPropagation();
           setOpen((o) => !o);
